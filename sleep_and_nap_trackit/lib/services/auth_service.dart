@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
+import '../models/profile.dart';
+
 class AuthException implements Exception {
   AuthException(this.message);
   final String message;
@@ -10,9 +12,14 @@ class AuthException implements Exception {
 
 abstract class AuthService {
   Future<void> signIn({required String email, required String password});
-  Future<void> signUp({required String email, required String password});
+  Future<void> signUp({
+    required String email,
+    required String password,
+    required Profile profile,
+  });
   Future<void> signOut();
   bool get isAuthenticated;
+  String? get currentUserId;
 }
 
 class SupabaseAuthService implements AuthService {
@@ -20,6 +27,9 @@ class SupabaseAuthService implements AuthService {
 
   @override
   bool get isAuthenticated => _client.auth.currentSession != null;
+
+  @override
+  String? get currentUserId => _client.auth.currentUser?.id;
 
   @override
   Future<void> signIn({required String email, required String password}) async {
@@ -31,12 +41,32 @@ class SupabaseAuthService implements AuthService {
   }
 
   @override
-  Future<void> signUp({required String email, required String password}) async {
+  Future<void> signUp({
+    required String email,
+    required String password,
+    required Profile profile,
+  }) async {
     try {
       final response = await _client.auth.signUp(email: email, password: password);
       if (response.user == null) {
         throw AuthException('Sign up failed. Please try again.');
       }
+
+      final profileWithId = Profile(
+        id: response.user!.id,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        middleInitial: profile.middleInitial,
+        dateOfBirth: profile.dateOfBirth,
+        usualBedtime: profile.usualBedtime,
+        usualWakeUpTime: profile.usualWakeUpTime,
+        gender: profile.gender,
+        sleepGoalHours: profile.sleepGoalHours,
+        napHabit: profile.napHabit,
+        notificationsEnabled: profile.notificationsEnabled,
+      );
+
+      await _client.from('profiles').insert(profileWithId.toJson());
     } on sb.AuthException catch (e) {
       throw AuthException(e.message);
     }
@@ -58,6 +88,9 @@ class MockAuthService implements AuthService {
   bool get isAuthenticated => _authenticated;
 
   @override
+  String? get currentUserId => _authenticated ? 'mock-user-id' : null;
+
+  @override
   Future<void> signIn({required String email, required String password}) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
     if (email == _validEmail && password == _validPassword) {
@@ -68,7 +101,11 @@ class MockAuthService implements AuthService {
   }
 
   @override
-  Future<void> signUp({required String email, required String password}) async {
+  Future<void> signUp({
+    required String email,
+    required String password,
+    required Profile profile,
+  }) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
     if (email == _validEmail) {
       throw AuthException('An account with this email already exists');

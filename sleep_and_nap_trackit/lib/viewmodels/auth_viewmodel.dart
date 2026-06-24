@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/locator.dart';
+import '../models/profile.dart';
 import '../services/auth_service.dart';
 
 enum AuthMode { login, signUp }
@@ -213,7 +214,28 @@ class AuthViewModel extends ChangeNotifier {
       if (_mode == AuthMode.login) {
         await _authService.signIn(email: _email, password: _password);
       } else {
-        await _authService.signUp(email: _email, password: _password);
+        String formatTime(TimeOfDay t) =>
+            '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:00';
+
+        final profile = Profile(
+          id: '',
+          firstName: _firstName,
+          lastName: _lastName,
+          middleInitial: _middleInitial.isNotEmpty ? _middleInitial : null,
+          dateOfBirth: _dateOfBirth!,
+          usualBedtime: formatTime(_usualBedtime!),
+          usualWakeUpTime: formatTime(_usualWakeUpTime!),
+          gender: _gender,
+          sleepGoalHours: _sleepGoalHours,
+          napHabit: _napHabit,
+          notificationsEnabled: _notificationsEnabled,
+        );
+
+        await _authService.signUp(
+          email: _email,
+          password: _password,
+          profile: profile,
+        );
       }
       _isLoading = false;
       notifyListeners();

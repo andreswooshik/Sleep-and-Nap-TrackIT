@@ -1,5 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sleep_and_nap_trackit/models/profile.dart';
 import 'package:sleep_and_nap_trackit/services/auth_service.dart';
+
+Profile _testProfile() => Profile(
+      id: '',
+      firstName: 'John',
+      lastName: 'Doe',
+      dateOfBirth: DateTime(2000, 1, 1),
+      usualBedtime: '22:00:00',
+      usualWakeUpTime: '07:00:00',
+    );
 
 void main() {
   group('AuthService interface', () {
@@ -19,14 +29,22 @@ void main() {
 
     test('MockAuthService signUp succeeds', () async {
       final service = MockAuthService();
-      await service.signUp(email: 'new@example.com', password: 'password123');
+      await service.signUp(
+        email: 'new@example.com',
+        password: 'password123',
+        profile: _testProfile(),
+      );
       expect(service.isAuthenticated, isTrue);
     });
 
     test('MockAuthService signUp throws if email already taken', () async {
       final service = MockAuthService();
       expect(
-        () => service.signUp(email: 'test@example.com', password: 'password123'),
+        () => service.signUp(
+          email: 'test@example.com',
+          password: 'password123',
+          profile: _testProfile(),
+        ),
         throwsA(isA<AuthException>()),
       );
     });

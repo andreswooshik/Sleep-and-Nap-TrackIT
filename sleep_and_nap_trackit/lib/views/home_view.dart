@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/locator.dart';
 import '../models/sleep_log.dart';
+import '../services/auth_service.dart';
 import '../viewmodels/home_viewmodel.dart';
+import 'auth_view.dart';
 
 class HomeView extends StatelessWidget {
   const HomeView({super.key});
@@ -115,6 +118,19 @@ class _Header extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.logout_rounded, color: Color(0xFFDDE6ED)),
+                tooltip: 'Logout',
+                onPressed: () async {
+                  await locator<AuthService>().signOut();
+                  if (context.mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute<void>(builder: (_) => const AuthView()),
+                      (_) => false,
+                    );
+                  }
+                },
               ),
             ],
           ),
