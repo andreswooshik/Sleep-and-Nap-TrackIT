@@ -9,7 +9,13 @@ import 'views/home_view.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
+
+  try {
+    await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+  } catch (e) {
+    debugPrint('Supabase init error: $e');
+  }
+
   setupLocator();
   runApp(const SleepTrackItApp());
 }

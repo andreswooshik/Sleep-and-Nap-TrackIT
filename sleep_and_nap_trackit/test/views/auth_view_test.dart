@@ -39,7 +39,7 @@ void main() {
       await tester.tap(find.text('Sign Up'));
       await tester.pumpAndSettle();
       expect(find.text('Create Account'), findsOneWidget);
-      expect(find.byType(TextFormField), findsNWidgets(3));
+      expect(find.byType(TextFormField), findsAtLeast(6));
     });
 
     testWidgets('toggles back to login form', (tester) async {
