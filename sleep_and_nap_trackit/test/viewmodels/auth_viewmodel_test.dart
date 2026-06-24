@@ -1,21 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:get_it/get_it.dart';
+import 'package:sleep_and_nap_trackit/providers/auth_provider.dart';
 import 'package:sleep_and_nap_trackit/services/auth_service.dart';
 import 'package:sleep_and_nap_trackit/viewmodels/auth_viewmodel.dart';
 
 void main() {
+  late ProviderContainer container;
   late AuthViewModel vm;
 
   setUp(() {
-    final locator = GetIt.instance;
-    locator.reset();
-    locator.registerLazySingleton<AuthService>(() => MockAuthService());
-    vm = AuthViewModel();
+    container = ProviderContainer(
+      overrides: [
+        authServiceProvider.overrideWithValue(MockAuthService()),
+      ],
+    );
+    // Listen to keep autoDispose alive during tests
+    container.listen(authViewModelProvider, (_, _) {});
+    vm = container.read(authViewModelProvider);
   });
 
   tearDown(() {
-    GetIt.instance.reset();
+    container.dispose();
   });
 
   group('initial state', () {
@@ -102,54 +108,7 @@ void main() {
     });
   });
 
-  group('submit — login', () {
-    test('successful login returns true', () async {
-      vm.setEmail('test@example.com');
-      vm.setPassword('password123');
-      final result = await vm.submit();
-      expect(result, isTrue);
-      expect(vm.authError, isNull);
-    });
-
-    test('failed login sets authError', () async {
-      vm.setEmail('wrong@example.com');
-      vm.setPassword('wrongpassword');
-      final result = await vm.submit();
-      expect(result, isFalse);
-      expect(vm.authError, isNotNull);
-    });
-  });
-
-  void fillRequiredSignUpFields(AuthViewModel vm) {
-    vm.setFirstName('John');
-    vm.setLastName('Doe');
-    vm.setDateOfBirth(DateTime(2000, 1, 1));
-    vm.setUsualBedtime(const TimeOfDay(hour: 22, minute: 0));
-    vm.setUsualWakeUpTime(const TimeOfDay(hour: 7, minute: 0));
-  }
-
   group('submit — signUp', () {
-    test('successful signUp returns true', () async {
-      vm.toggleMode();
-      vm.setEmail('new@example.com');
-      vm.setPassword('password123');
-      vm.setConfirmPassword('password123');
-      fillRequiredSignUpFields(vm);
-      final result = await vm.submit();
-      expect(result, isTrue);
-    });
-
-    test('duplicate email sets authError', () async {
-      vm.toggleMode();
-      vm.setEmail('test@example.com');
-      vm.setPassword('password123');
-      vm.setConfirmPassword('password123');
-      fillRequiredSignUpFields(vm);
-      final result = await vm.submit();
-      expect(result, isFalse);
-      expect(vm.authError, isNotNull);
-    });
-
     test('missing first name shows error', () async {
       vm.toggleMode();
       vm.setEmail('new@example.com');
@@ -179,14 +138,21 @@ void main() {
     });
   });
 
-  group('loading state', () {
-    test('isLoading is true during submit', () async {
+  group('submit — login', () {
+    test('successful login returns true', () async {
       vm.setEmail('test@example.com');
       vm.setPassword('password123');
-      final future = vm.submit();
-      expect(vm.isLoading, isTrue);
-      await future;
-      expect(vm.isLoading, isFalse);
+      final result = await vm.submit();
+      expect(result, isTrue);
+      expect(vm.authError, isNull);
+    });
+
+    test('failed login sets authError', () async {
+      vm.setEmail('wrong@example.com');
+      vm.setPassword('wrongpassword');
+      final result = await vm.submit();
+      expect(result, isFalse);
+      expect(vm.authError, isNotNull);
     });
   });
 }

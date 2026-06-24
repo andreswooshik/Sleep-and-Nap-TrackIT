@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'core/locator.dart';
 import 'core/supabase_config.dart';
-import 'services/auth_service.dart';
+import 'providers/auth_provider.dart';
 import 'views/auth_view.dart';
 import 'views/home_view.dart';
 
@@ -16,17 +16,16 @@ Future<void> main() async {
     debugPrint('Supabase init error: $e');
   }
 
-  setupLocator();
-  runApp(const SleepTrackItApp());
+  runApp(const ProviderScope(child: SleepTrackItApp()));
 }
 
-class SleepTrackItApp extends StatelessWidget {
+class SleepTrackItApp extends ConsumerWidget {
   const SleepTrackItApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     const seed = Color(0xFF526D82);
-    final authService = locator<AuthService>();
+    final authState = ref.watch(authProvider);
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -39,7 +38,9 @@ class SleepTrackItApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFF6F3EC),
         useMaterial3: true,
       ),
-      home: authService.isAuthenticated ? const HomeView() : const AuthView(),
+      home: authState.phase == AuthPhase.authorized
+          ? const HomeView()
+          : const AuthView(),
     );
   }
 }

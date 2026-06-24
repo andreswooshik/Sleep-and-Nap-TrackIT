@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/locator.dart';
 import '../models/profile.dart';
-import '../services/auth_service.dart';
+import '../providers/auth_provider.dart';
 
 enum AuthMode { login, signUp }
 
+final authViewModelProvider = ChangeNotifierProvider.autoDispose<AuthViewModel>((ref) {
+  return AuthViewModel(ref);
+});
+
 class AuthViewModel extends ChangeNotifier {
-  final AuthService _authService = locator<AuthService>();
+  AuthViewModel(this._ref);
+
+  final Ref _ref;
 
   AuthMode _mode = AuthMode.login;
   AuthMode get mode => _mode;
 
-  // Account fields
   String _email = '';
   String get email => _email;
 
@@ -22,7 +27,6 @@ class AuthViewModel extends ChangeNotifier {
   String _confirmPassword = '';
   String get confirmPassword => _confirmPassword;
 
-  // Required profile fields
   String _firstName = '';
   String get firstName => _firstName;
 
@@ -41,7 +45,6 @@ class AuthViewModel extends ChangeNotifier {
   TimeOfDay? _usualWakeUpTime;
   TimeOfDay? get usualWakeUpTime => _usualWakeUpTime;
 
-  // Optional profile fields
   String? _gender;
   String? get gender => _gender;
 
@@ -54,7 +57,6 @@ class AuthViewModel extends ChangeNotifier {
   bool _notificationsEnabled = true;
   bool get notificationsEnabled => _notificationsEnabled;
 
-  // Errors
   String? _emailError;
   String? get emailError => _emailError;
 
@@ -104,12 +106,9 @@ class AuthViewModel extends ChangeNotifier {
     _authError = null;
   }
 
-  // Account setters
   void setEmail(String value) => _email = value;
   void setPassword(String value) => _password = value;
   void setConfirmPassword(String value) => _confirmPassword = value;
-
-  // Profile setters
   void setFirstName(String value) => _firstName = value;
   void setLastName(String value) => _lastName = value;
   void setMiddleInitial(String value) => _middleInitial = value;
@@ -210,41 +209,43 @@ class AuthViewModel extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    try {
-      if (_mode == AuthMode.login) {
-        await _authService.signIn(email: _email, password: _password);
-      } else {
-        String formatTime(TimeOfDay t) =>
-            '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:00';
+    final authNotifier = _ref.read(authProvider.notifier);
+    bool success;
 
-        final profile = Profile(
-          id: '',
-          firstName: _firstName,
-          lastName: _lastName,
-          middleInitial: _middleInitial.isNotEmpty ? _middleInitial : null,
-          dateOfBirth: _dateOfBirth!,
-          usualBedtime: formatTime(_usualBedtime!),
-          usualWakeUpTime: formatTime(_usualWakeUpTime!),
-          gender: _gender,
-          sleepGoalHours: _sleepGoalHours,
-          napHabit: _napHabit,
-          notificationsEnabled: _notificationsEnabled,
-        );
+    if (_mode == AuthMode.login) {
+      success = await authNotifier.signIn(email: _email, password: _password);
+    } else {
+      String formatTime(TimeOfDay t) =>
+          '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:00';
 
-        await _authService.signUp(
-          email: _email,
-          password: _password,
-          profile: profile,
-        );
-      }
-      _isLoading = false;
-      notifyListeners();
-      return true;
-    } on AuthException catch (e) {
-      _authError = e.message;
-      _isLoading = false;
-      notifyListeners();
-      return false;
+      final profile = Profile(
+        id: '',
+        firstName: _firstName,
+        lastName: _lastName,
+        middleInitial: _middleInitial.isNotEmpty ? _middleInitial : null,
+        dateOfBirth: _dateOfBirth!,
+        usualBedtime: formatTime(_usualBedtime!),
+        usualWakeUpTime: formatTime(_usualWakeUpTime!),
+        gender: _gender,
+        sleepGoalHours: _sleepGoalHours,
+        napHabit: _napHabit,
+        notificationsEnabled: _notificationsEnabled,
+      );
+
+      success = await authNotifier.signUp(
+        email: _email,
+        password: _password,
+        profile: profile,
+      );
     }
+
+    if (!success) {
+      final authState = _ref.read(authProvider);
+      _authError = authState.error;
+    }
+
+    _isLoading = false;
+    notifyListeners();
+    return success;
   }
 }

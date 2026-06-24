@@ -1,75 +1,100 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/locator.dart';
 import '../models/sleep_log.dart';
-import '../services/auth_service.dart';
-import '../viewmodels/home_viewmodel.dart';
-import 'auth_view.dart';
+import '../providers/auth_provider.dart';
+import '../providers/home_provider.dart';
 
-class HomeView extends StatelessWidget {
+class HomeView extends ConsumerWidget {
   const HomeView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => HomeViewModel()..fetchLogs(),
-      child: const _HomeContent(),
-    );
-  }
-}
-
-class _HomeContent extends StatelessWidget {
-  const _HomeContent();
-
-  @override
-  Widget build(BuildContext context) {
-    final viewModel = context.watch<HomeViewModel>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final logsAsync = ref.watch(sleepLogsProvider);
 
     return Scaffold(
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: viewModel.fetchLogs,
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                sliver: SliverToBoxAdapter(
-                  child: _Header(latestSleep: viewModel.latestSleep),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                sliver: SliverToBoxAdapter(
-                  child: _SummaryGrid(viewModel: viewModel),
-                ),
-              ),
-              const SliverPadding(
-                padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
-                sliver: SliverToBoxAdapter(child: _QuickActions()),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
-                sliver: SliverToBoxAdapter(
-                  child: _RecentLogs(viewModel: viewModel),
-                ),
-              ),
-            ],
-          ),
+        child: logsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Error: $e')),
+          data: (logs) => _HomeContent(logs: logs),
         ),
       ),
     );
   }
 }
 
-class _Header extends StatelessWidget {
+class _HomeContent extends StatelessWidget {
+  const _HomeContent({required this.logs});
+
+  final List<SleepLog> logs;
+
+  SleepLog? get _latestSleep {
+    final sleepLogs = logs.where((log) => log.type == SleepLogType.sleep);
+    return sleepLogs.isEmpty ? null : sleepLogs.first;
+  }
+
+  Duration get _averageSleepDuration {
+    final sleepLogs = logs.where((log) => log.type == SleepLogType.sleep);
+    if (sleepLogs.isEmpty) return Duration.zero;
+    final totalMinutes = sleepLogs.fold<int>(0, (t, l) => t + l.duration.inMinutes);
+    return Duration(minutes: totalMinutes ~/ sleepLogs.length);
+  }
+
+  int get _napCount => logs.where((log) => log.type == SleepLogType.nap).length;
+
+  int get _averageQuality {
+    if (logs.isEmpty) return 0;
+    final total = logs.fold<int>(0, (sum, log) => sum + log.quality);
+    return (total / logs.length).round();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: () async {},
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            sliver: SliverToBoxAdapter(
+              child: _Header(latestSleep: _latestSleep),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            sliver: SliverToBoxAdapter(
+              child: _SummaryGrid(
+                averageSleep: _averageSleepDuration,
+                napCount: _napCount,
+                averageQuality: _averageQuality,
+              ),
+            ),
+          ),
+          const SliverPadding(
+            padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
+            sliver: SliverToBoxAdapter(child: _QuickActions()),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
+            sliver: SliverToBoxAdapter(
+              child: _RecentLogs(logs: logs),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Header extends ConsumerWidget {
   const _Header({required this.latestSleep});
 
   final SleepLog? latestSleep;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final duration = latestSleep == null
         ? '--'
@@ -123,13 +148,7 @@ class _Header extends StatelessWidget {
                 icon: const Icon(Icons.logout_rounded, color: Color(0xFFDDE6ED)),
                 tooltip: 'Logout',
                 onPressed: () async {
-                  await locator<AuthService>().signOut();
-                  if (context.mounted) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute<void>(builder: (_) => const AuthView()),
-                      (_) => false,
-                    );
-                  }
+                  await ref.read(authProvider.notifier).signOut();
                 },
               ),
             ],
@@ -156,9 +175,15 @@ class _Header extends StatelessWidget {
 }
 
 class _SummaryGrid extends StatelessWidget {
-  const _SummaryGrid({required this.viewModel});
+  const _SummaryGrid({
+    required this.averageSleep,
+    required this.napCount,
+    required this.averageQuality,
+  });
 
-  final HomeViewModel viewModel;
+  final Duration averageSleep;
+  final int napCount;
+  final int averageQuality;
 
   @override
   Widget build(BuildContext context) {
@@ -176,19 +201,19 @@ class _SummaryGrid extends StatelessWidget {
             _MetricCard(
               icon: Icons.schedule_rounded,
               label: 'Average sleep',
-              value: _formatDuration(viewModel.averageSleepDuration),
+              value: _formatDuration(averageSleep),
               color: const Color(0xFF526D82),
             ),
             _MetricCard(
               icon: Icons.spa_rounded,
               label: 'Naps logged',
-              value: '${viewModel.napCount}',
+              value: '$napCount',
               color: const Color(0xFF7E6B8F),
             ),
             _MetricCard(
               icon: Icons.favorite_rounded,
               label: 'Rest quality',
-              value: '${viewModel.averageQuality}%',
+              value: '$averageQuality%',
               color: const Color(0xFF5B8C6F),
             ),
           ],
@@ -284,9 +309,9 @@ class _QuickActions extends StatelessWidget {
 }
 
 class _RecentLogs extends StatelessWidget {
-  const _RecentLogs({required this.viewModel});
+  const _RecentLogs({required this.logs});
 
-  final HomeViewModel viewModel;
+  final List<SleepLog> logs;
 
   @override
   Widget build(BuildContext context) {
@@ -302,15 +327,15 @@ class _RecentLogs extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        if (viewModel.isLoading)
+        if (logs.isEmpty)
           const Center(
             child: Padding(
               padding: EdgeInsets.all(28),
-              child: CircularProgressIndicator(),
+              child: Text('No logs yet'),
             ),
           )
         else
-          ...viewModel.logs.map((log) => _LogTile(log: log)),
+          ...logs.map((log) => _LogTile(log: log)),
       ],
     );
   }
@@ -380,16 +405,9 @@ class _LogTile extends StatelessWidget {
 }
 
 String _formatDuration(Duration duration) {
-  if (duration == Duration.zero) {
-    return '--';
-  }
-
+  if (duration == Duration.zero) return '--';
   final hours = duration.inHours;
   final minutes = duration.inMinutes.remainder(60);
-
-  if (hours == 0) {
-    return '${minutes}m';
-  }
-
+  if (hours == 0) return '${minutes}m';
   return '${hours}h ${minutes}m';
 }

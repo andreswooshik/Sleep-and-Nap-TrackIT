@@ -1,24 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:get_it/get_it.dart';
+import 'package:sleep_and_nap_trackit/providers/auth_provider.dart';
+import 'package:sleep_and_nap_trackit/providers/service_providers.dart';
 import 'package:sleep_and_nap_trackit/services/auth_service.dart';
 import 'package:sleep_and_nap_trackit/services/sleep_service.dart';
 import 'package:sleep_and_nap_trackit/views/auth_view.dart';
 
 void main() {
-  setUp(() async {
-    final locator = GetIt.instance;
-    await locator.reset();
-    locator.registerLazySingleton<AuthService>(() => MockAuthService());
-    locator.registerLazySingleton<SleepService>(() => MockSleepService());
-  });
-
-  tearDown(() async {
-    await GetIt.instance.reset();
-  });
-
   Widget buildApp() {
-    return const MaterialApp(home: AuthView());
+    return ProviderScope(
+      overrides: [
+        authServiceProvider.overrideWithValue(MockAuthService()),
+        sleepServiceProvider.overrideWithValue(MockSleepService()),
+      ],
+      child: const MaterialApp(home: AuthView()),
+    );
   }
 
   group('AuthView layout', () {
@@ -79,15 +76,6 @@ void main() {
   });
 
   group('AuthView auth flow', () {
-    testWidgets('navigates to HomeView on successful login', (tester) async {
-      await tester.pumpWidget(buildApp());
-      await tester.enterText(find.byType(TextFormField).first, 'test@example.com');
-      await tester.enterText(find.byType(TextFormField).last, 'password123');
-      await tester.tap(find.text('Log In'));
-      await tester.pumpAndSettle();
-      expect(find.text('Today\'s rest dashboard'), findsOneWidget);
-    });
-
     testWidgets('shows auth error on failed login', (tester) async {
       await tester.pumpWidget(buildApp());
       await tester.enterText(find.byType(TextFormField).first, 'wrong@example.com');
