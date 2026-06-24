@@ -7,39 +7,39 @@ import '../services/auth_service.dart';
 enum AuthPhase { unauthorized, authenticating, authorized }
 
 class AuthState {
-  const AuthState({
-    required this.phase,
-    this.error,
-  });
+  const AuthState({required this.phase, this.error});
 
   final AuthPhase phase;
   final String? error;
 
-  AuthState copyWith({AuthPhase? phase, String? error}) => AuthState(
-        phase: phase ?? this.phase,
-        error: error,
-      );
+  AuthState copyWith({AuthPhase? phase, String? error}) =>
+      AuthState(phase: phase ?? this.phase, error: error);
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
   AuthNotifier(this._authService)
-      : super(AuthState(
+    : super(
+        AuthState(
           phase: _authService.isAuthenticated
               ? AuthPhase.authorized
               : AuthPhase.unauthorized,
-        )) {
+        ),
+      ) {
     _listenToAuthChanges();
   }
 
   final AuthService _authService;
+  bool _signedOutLocally = false;
 
   void _listenToAuthChanges() {
     try {
       sb.Supabase.instance.client.auth.onAuthStateChange.listen((data) {
         final session = data.session;
         if (session != null) {
+          if (_signedOutLocally) return;
           state = const AuthState(phase: AuthPhase.authorized);
         } else {
+          _signedOutLocally = false;
           state = const AuthState(phase: AuthPhase.unauthorized);
         }
       });
@@ -49,6 +49,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<bool> signIn({required String email, required String password}) async {
+    _signedOutLocally = false;
     state = const AuthState(phase: AuthPhase.authenticating);
     try {
       await _authService.signIn(email: email, password: password);
@@ -65,6 +66,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String password,
     required Profile profile,
   }) async {
+    _signedOutLocally = false;
     state = const AuthState(phase: AuthPhase.authenticating);
     try {
       await _authService.signUp(
@@ -81,8 +83,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> signOut() async {
-    await _authService.signOut();
+    _signedOutLocally = true;
     state = const AuthState(phase: AuthPhase.unauthorized);
+    try {
+      await _authService.signOut();
+    } catch (_) {
+      // Keep the local app session closed even if the remote sign-out request
+      // cannot complete, so the logout button always responds immediately.
+    }
   }
 }
 
