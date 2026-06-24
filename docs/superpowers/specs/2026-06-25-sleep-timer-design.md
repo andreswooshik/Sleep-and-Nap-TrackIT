@@ -58,10 +58,13 @@ class SleepTimerState {
 
 ```dart
 final sleepTimerProvider =
-    StateNotifierProvider.autoDispose<SleepTimerNotifier, SleepTimerState>(
+    StateNotifierProvider<SleepTimerNotifier, SleepTimerState>(
   (ref) => SleepTimerNotifier(),
 );
 ```
+
+This is app-scoped (not `autoDispose`) so a running session survives when the
+user navigates back to the dashboard, and can be resumed later.
 
 ### `TimerView`
 
@@ -75,8 +78,9 @@ Full-screen page constructed with the session `type`:
 ## Flow
 
 1. Dashboard `_QuickActions` "Log Sleep" / "Log Nap" → `Navigator.push` to `TimerView(type: ...)`.
-2. `TimerView` starts the timer; the display ticks each second (scoped rebuild).
-3. **Stop** → notifier cancels timer, captures `endedAt`, status becomes `stopped`. The final elapsed time is shown.
+2. `TimerView` starts the timer only if no session is active (otherwise it resumes the running one); the display ticks each second (scoped rebuild).
+3. **Go to dashboard** → the user can pop back at any time via the back button or "Keep running, go to dashboard". The session keeps running. The dashboard shows an active-session banner (type + live elapsed) with a **Resume** button that re-opens `TimerView`.
+4. **Stop** → notifier cancels timer, captures `endedAt`, status becomes `stopped`. The final elapsed time is shown.
 4. A quality dialog appears (slider 0–100, default 80) with **Save** and **Cancel**.
    - **Save**: build the `SleepLog` with `userId` (from `Supabase.instance.client.auth.currentUser`), call `sleepService.addSleepLog(log)`, then `ref.invalidate(sleepLogsProvider)`, then pop back to the dashboard.
    - **Cancel**: dismiss the dialog and stay on the stopped timer (final time still shown). The user can re-open the dialog via a "Save Session" button, or use a separate **Discard** button to leave without saving.

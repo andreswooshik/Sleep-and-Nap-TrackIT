@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/sleep_log.dart';
 import '../providers/auth_provider.dart';
 import '../providers/home_provider.dart';
+import '../providers/sleep_timer_provider.dart';
+import 'timer_view.dart';
 
 class HomeView extends ConsumerWidget {
   const HomeView({super.key});
@@ -74,6 +76,10 @@ class _HomeContent extends StatelessWidget {
                 averageQuality: _averageQuality,
               ),
             ),
+          ),
+          const SliverPadding(
+            padding: EdgeInsets.fromLTRB(20, 18, 20, 0),
+            sliver: SliverToBoxAdapter(child: _ActiveSessionBanner()),
           ),
           const SliverPadding(
             padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
@@ -291,13 +297,19 @@ class _MetricCard extends StatelessWidget {
 class _QuickActions extends StatelessWidget {
   const _QuickActions();
 
+  void _openTimer(BuildContext context, SleepLogType type) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => TimerView(type: type)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         Expanded(
           child: FilledButton.icon(
-            onPressed: () {},
+            onPressed: () => _openTimer(context, SleepLogType.sleep),
             icon: const Icon(Icons.nightlight_round),
             label: const Text('Log Sleep'),
           ),
@@ -305,12 +317,99 @@ class _QuickActions extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () {},
+            onPressed: () => _openTimer(context, SleepLogType.nap),
             icon: const Icon(Icons.airline_seat_individual_suite_rounded),
             label: const Text('Log Nap'),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ActiveSessionBanner extends ConsumerWidget {
+  const _ActiveSessionBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(sleepTimerProvider.select((s) => s.status));
+    if (status == SleepTimerStatus.idle) {
+      return const SizedBox.shrink();
+    }
+
+    final type = ref.watch(sleepTimerProvider.select((s) => s.type));
+    final isSleep = type == SleepLogType.sleep;
+    final isStopped = status == SleepTimerStatus.stopped;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 2),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF27374D),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isSleep
+                ? Icons.bedtime_rounded
+                : Icons.airline_seat_individual_suite_rounded,
+            color: const Color(0xFFDDE6ED),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${isSleep ? 'Sleep' : 'Nap'} session ${isStopped ? 'paused' : 'in progress'}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+                const _BannerElapsed(),
+              ],
+            ),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => TimerView(type: type),
+                ),
+              );
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF526D82),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Resume'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BannerElapsed extends ConsumerWidget {
+  const _BannerElapsed();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final elapsed = ref.watch(sleepTimerProvider.select((s) => s.elapsed));
+    final h = elapsed.inHours.toString().padLeft(2, '0');
+    final m = elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
+
+    return Text(
+      '$h:$m:$s',
+      style: const TextStyle(
+        color: Color(0xFFDDE6ED),
+        fontSize: 13,
+        fontFeatures: [FontFeature.tabularFigures()],
+      ),
     );
   }
 }
