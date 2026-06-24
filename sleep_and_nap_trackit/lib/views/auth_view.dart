@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
-import 'home_view.dart';
 
 class AuthView extends ConsumerWidget {
   const AuthView({super.key});
@@ -156,7 +155,9 @@ class _ModeToggle extends ConsumerWidget {
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  color: !isLogin ? const Color(0xFF27374D) : Colors.transparent,
+                  color: !isLogin
+                      ? const Color(0xFF27374D)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Center(
@@ -242,20 +243,12 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.red.shade400, width: 2),
       ),
-      labelStyle: const TextStyle(
-        color: Color(0xFF9AA3A2),
-        fontSize: 14,
-      ),
+      labelStyle: const TextStyle(color: Color(0xFF9AA3A2), fontSize: 14),
     );
   }
 
   Future<void> _handleSubmit(AuthViewModel viewModel) async {
-    final success = await viewModel.submit();
-    if (success && mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(builder: (_) => const HomeView()),
-      );
-    }
+    await viewModel.submit();
   }
 
   Future<void> _pickDate(AuthViewModel viewModel) async {
@@ -287,8 +280,18 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
@@ -321,9 +324,7 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
           ),
         );
       },
-      child: isLogin
-          ? _buildLoginForm(viewModel)
-          : _buildSignUpForm(viewModel),
+      child: isLogin ? _buildLoginForm(viewModel) : _buildSignUpForm(viewModel),
     );
   }
 
@@ -355,11 +356,14 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
             prefixIcon: Icons.lock_outline_rounded,
             suffixIcon: IconButton(
               icon: Icon(
-                _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                _obscurePassword
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
                 size: 20,
                 color: const Color(0xFF9AA3A2),
               ),
-              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
             ),
           ),
         ),
@@ -418,7 +422,10 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
                 onChanged: viewModel.setMiddleInitial,
                 decoration: _inputDecoration(label: 'M.I.').copyWith(
                   counterText: '',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
+                  ),
                 ),
               ),
             ),
@@ -452,11 +459,14 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
             prefixIcon: Icons.lock_outline_rounded,
             suffixIcon: IconButton(
               icon: Icon(
-                _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                _obscurePassword
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
                 size: 20,
                 color: const Color(0xFF9AA3A2),
               ),
-              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
             ),
           ),
         ),
@@ -474,11 +484,15 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
             prefixIcon: Icons.lock_outline_rounded,
             suffixIcon: IconButton(
               icon: Icon(
-                _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                _obscureConfirmPassword
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
                 size: 20,
                 color: const Color(0xFF9AA3A2),
               ),
-              onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+              onPressed: () => setState(
+                () => _obscureConfirmPassword = !_obscureConfirmPassword,
+              ),
             ),
           ),
         ),
@@ -558,7 +572,10 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
           items: const [
             DropdownMenuItem(value: 'Male', child: Text('Male')),
             DropdownMenuItem(value: 'Female', child: Text('Female')),
-            DropdownMenuItem(value: 'Prefer not to say', child: Text('Prefer not to say')),
+            DropdownMenuItem(
+              value: 'Prefer not to say',
+              child: Text('Prefer not to say'),
+            ),
           ],
           onChanged: viewModel.setGender,
         ),
@@ -594,7 +611,10 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
                 ),
                 items: const [
                   DropdownMenuItem(value: 'Never', child: Text('Never')),
-                  DropdownMenuItem(value: 'Sometimes', child: Text('Sometimes')),
+                  DropdownMenuItem(
+                    value: 'Sometimes',
+                    child: Text('Sometimes'),
+                  ),
                   DropdownMenuItem(value: 'Daily', child: Text('Daily')),
                 ],
                 onChanged: (v) {
@@ -616,7 +636,11 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
           ),
           child: Row(
             children: [
-              const Icon(Icons.notifications_outlined, size: 20, color: Color(0xFF526D82)),
+              const Icon(
+                Icons.notifications_outlined,
+                size: 20,
+                color: Color(0xFF526D82),
+              ),
               const SizedBox(width: 12),
               const Expanded(
                 child: Text(
@@ -661,7 +685,9 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
               color: const Color(0xFFFAF9F6),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: errorText != null ? Colors.red.shade400 : const Color(0xFFE3DED4),
+                color: errorText != null
+                    ? Colors.red.shade400
+                    : const Color(0xFFE3DED4),
               ),
             ),
             child: Row(
@@ -672,7 +698,9 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
                   label,
                   style: TextStyle(
                     fontSize: 14,
-                    color: hasValue ? const Color(0xFF1D2B2A) : const Color(0xFF9AA3A2),
+                    color: hasValue
+                        ? const Color(0xFF1D2B2A)
+                        : const Color(0xFF9AA3A2),
                   ),
                 ),
               ],
@@ -701,7 +729,11 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline_rounded, size: 20, color: Colors.red.shade700),
+          Icon(
+            Icons.error_outline_rounded,
+            size: 20,
+            color: Colors.red.shade700,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -721,8 +753,12 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
         onPressed: viewModel.isLoading ? null : () => _handleSubmit(viewModel),
         style: FilledButton.styleFrom(
           backgroundColor: const Color(0xFF27374D),
-          disabledBackgroundColor: const Color(0xFF27374D).withValues(alpha: 0.6),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          disabledBackgroundColor: const Color(
+            0xFF27374D,
+          ).withValues(alpha: 0.6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
         child: viewModel.isLoading
             ? const SizedBox(

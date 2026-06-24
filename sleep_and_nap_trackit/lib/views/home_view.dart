@@ -37,7 +37,10 @@ class _HomeContent extends StatelessWidget {
   Duration get _averageSleepDuration {
     final sleepLogs = logs.where((log) => log.type == SleepLogType.sleep);
     if (sleepLogs.isEmpty) return Duration.zero;
-    final totalMinutes = sleepLogs.fold<int>(0, (t, l) => t + l.duration.inMinutes);
+    final totalMinutes = sleepLogs.fold<int>(
+      0,
+      (t, l) => t + l.duration.inMinutes,
+    );
     return Duration(minutes: totalMinutes ~/ sleepLogs.length);
   }
 
@@ -78,9 +81,7 @@ class _HomeContent extends StatelessWidget {
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
-            sliver: SliverToBoxAdapter(
-              child: _RecentLogs(logs: logs),
-            ),
+            sliver: SliverToBoxAdapter(child: _RecentLogs(logs: logs)),
           ),
         ],
       ),
@@ -144,12 +145,18 @@ class _Header extends ConsumerWidget {
                   ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.logout_rounded, color: Color(0xFFDDE6ED)),
-                tooltip: 'Logout',
-                onPressed: () async {
-                  await ref.read(authProvider.notifier).signOut();
+              OutlinedButton.icon(
+                onPressed: () {
+                  ref.read(authProvider.notifier).signOut();
                 },
+                icon: const Icon(Icons.logout_rounded, size: 18),
+                label: const Text('Logout'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFDDE6ED),
+                  side: const BorderSide(color: Color(0xFFDDE6ED)),
+                  minimumSize: const Size(96, 40),
+                  tapTargetSize: MaterialTapTargetSize.padded,
+                ),
               ),
             ],
           ),
