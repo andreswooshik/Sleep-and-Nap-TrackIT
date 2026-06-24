@@ -1,7 +1,39 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/sleep_log.dart';
 
 abstract class SleepService {
   Future<List<SleepLog>> getSleepLogs();
+  Future<void> addSleepLog(SleepLog log);
+  Future<void> deleteSleepLog(String id);
+}
+
+class SupabaseSleepService implements SleepService {
+  SupabaseClient get _client => Supabase.instance.client;
+
+  @override
+  Future<List<SleepLog>> getSleepLogs() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    final data = await _client
+        .from('sleep_logs')
+        .select()
+        .eq('user_id', userId)
+        .order('started_at', ascending: false);
+
+    return data.map((json) => SleepLog.fromJson(json)).toList();
+  }
+
+  @override
+  Future<void> addSleepLog(SleepLog log) async {
+    await _client.from('sleep_logs').insert(log.toJson());
+  }
+
+  @override
+  Future<void> deleteSleepLog(String id) async {
+    await _client.from('sleep_logs').delete().eq('id', id);
+  }
 }
 
 class MockSleepService implements SleepService {
@@ -31,4 +63,10 @@ class MockSleepService implements SleepService {
       ),
     ];
   }
+
+  @override
+  Future<void> addSleepLog(SleepLog log) async {}
+
+  @override
+  Future<void> deleteSleepLog(String id) async {}
 }
