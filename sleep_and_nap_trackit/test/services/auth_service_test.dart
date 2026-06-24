@@ -12,14 +12,14 @@ Profile _testProfile() => Profile(
     );
 
 void main() {
-  group('AuthService interface', () {
-    test('MockAuthService signIn succeeds with valid credentials', () async {
+  group('MockAuthService', () {
+    test('signIn succeeds with valid credentials', () async {
       final service = MockAuthService();
       await service.signIn(email: 'test@example.com', password: 'password123');
       expect(service.isAuthenticated, isTrue);
     });
 
-    test('MockAuthService signIn throws on invalid credentials', () async {
+    test('signIn throws on invalid credentials', () async {
       final service = MockAuthService();
       expect(
         () => service.signIn(email: 'wrong@example.com', password: 'bad'),
@@ -27,7 +27,7 @@ void main() {
       );
     });
 
-    test('MockAuthService signUp succeeds', () async {
+    test('signUp succeeds', () async {
       final service = MockAuthService();
       await service.signUp(
         email: 'new@example.com',
@@ -37,7 +37,7 @@ void main() {
       expect(service.isAuthenticated, isTrue);
     });
 
-    test('MockAuthService signUp throws if email already taken', () async {
+    test('signUp throws if email already taken', () async {
       final service = MockAuthService();
       expect(
         () => service.signUp(
@@ -49,7 +49,7 @@ void main() {
       );
     });
 
-    test('MockAuthService signOut clears authentication', () async {
+    test('signOut clears authentication', () async {
       final service = MockAuthService();
       await service.signIn(email: 'test@example.com', password: 'password123');
       expect(service.isAuthenticated, isTrue);
@@ -57,7 +57,7 @@ void main() {
       expect(service.isAuthenticated, isFalse);
     });
 
-    test('MockAuthService starts unauthenticated', () {
+    test('starts unauthenticated', () {
       final service = MockAuthService();
       expect(service.isAuthenticated, isFalse);
     });

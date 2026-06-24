@@ -1,26 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
 import 'home_view.dart';
 
-class AuthView extends StatelessWidget {
+class AuthView extends ConsumerWidget {
   const AuthView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthViewModel(),
-      child: const _AuthContent(),
-    );
+  Widget build(BuildContext context, WidgetRef ref) {
+    return const _AuthContent();
   }
 }
 
-class _AuthContent extends StatelessWidget {
+class _AuthContent extends ConsumerWidget {
   const _AuthContent();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -113,12 +110,12 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _ModeToggle extends StatelessWidget {
+class _ModeToggle extends ConsumerWidget {
   const _ModeToggle();
 
   @override
-  Widget build(BuildContext context) {
-    final viewModel = context.watch<AuthViewModel>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final viewModel = ref.watch(authViewModelProvider);
     final isLogin = viewModel.mode == AuthMode.login;
 
     return Container(
@@ -181,14 +178,14 @@ class _ModeToggle extends StatelessWidget {
   }
 }
 
-class _AuthForm extends StatefulWidget {
+class _AuthForm extends ConsumerStatefulWidget {
   const _AuthForm();
 
   @override
-  State<_AuthForm> createState() => _AuthFormState();
+  ConsumerState<_AuthForm> createState() => _AuthFormState();
 }
 
-class _AuthFormState extends State<_AuthForm> {
+class _AuthFormState extends ConsumerState<_AuthForm> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -305,7 +302,7 @@ class _AuthFormState extends State<_AuthForm> {
 
   @override
   Widget build(BuildContext context) {
-    final viewModel = context.watch<AuthViewModel>();
+    final viewModel = ref.watch(authViewModelProvider);
     final isLogin = viewModel.mode == AuthMode.login;
 
     return AnimatedSwitcher(
