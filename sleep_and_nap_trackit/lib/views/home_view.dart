@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme.dart';
 import '../models/sleep_log.dart';
 import '../viewmodels/dashboard_viewmodel.dart';
+import '../providers/home_provider.dart';
 import '../providers/sleep_timer_provider.dart';
 import 'timer_view.dart';
 
@@ -326,17 +327,17 @@ class _RecentLogs extends StatelessWidget {
   }
 }
 
-class _LogTile extends StatelessWidget {
+class _LogTile extends ConsumerWidget {
   const _LogTile({required this.log});
 
   final SleepLog log;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isSleep = log.type == SleepLogType.sleep;
     final color = isSleep ? LullabyColors.primary : LullabyColors.secondary;
 
-    return Container(
+    final tile = Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: LullabyDecorations.glassCard(borderRadius: 12),
@@ -372,6 +373,28 @@ class _LogTile extends StatelessWidget {
           const Icon(Icons.chevron_right_rounded, color: LullabyColors.outline),
         ],
       ),
+    );
+
+    final id = log.id;
+    // Persisted logs can be swiped away; the repository drops them from the
+    // local list immediately and mirrors the delete to Supabase.
+    if (id == null) return tile;
+
+    return Dismissible(
+      key: ValueKey(id),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => ref.read(sleepLogsProvider.notifier).delete(id),
+      background: Container(
+        alignment: Alignment.centerRight,
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: LullabyColors.secondary.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(Icons.delete_outline_rounded, color: LullabyColors.secondary),
+      ),
+      child: tile,
     );
   }
 }

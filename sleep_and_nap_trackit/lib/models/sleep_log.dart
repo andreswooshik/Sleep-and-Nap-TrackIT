@@ -26,6 +26,26 @@ class SleepLog {
 
   String get label => type == SleepLogType.sleep ? 'Sleep' : 'Nap';
 
+  SleepLog copyWith({
+    String? id,
+    String? userId,
+    SleepLogType? type,
+    DateTime? startedAt,
+    DateTime? endedAt,
+    int? quality,
+    List<String>? factors,
+  }) {
+    return SleepLog(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      type: type ?? this.type,
+      startedAt: startedAt ?? this.startedAt,
+      endedAt: endedAt ?? this.endedAt,
+      quality: quality ?? this.quality,
+      factors: factors ?? this.factors,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
         'user_id': userId,
         'type': type == SleepLogType.sleep ? 'sleep' : 'nap',
