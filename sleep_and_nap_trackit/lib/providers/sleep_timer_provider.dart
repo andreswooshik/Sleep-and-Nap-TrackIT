@@ -92,7 +92,11 @@ class SleepTimerNotifier extends StateNotifier<SleepTimerState> {
 
   /// Builds the SleepLog package from the captured timestamps.
   /// Only valid once the timer has been stopped.
-  SleepLog buildLog({required String userId, required int quality}) {
+  SleepLog buildLog({
+    required String userId,
+    required int quality,
+    List<String> factors = const [],
+  }) {
     final startedAt = state.startedAt;
     final endedAt = state.endedAt;
     assert(
@@ -105,6 +109,7 @@ class SleepTimerNotifier extends StateNotifier<SleepTimerState> {
       startedAt: startedAt!,
       endedAt: endedAt!,
       quality: quality,
+      factors: factors,
     );
   }
 

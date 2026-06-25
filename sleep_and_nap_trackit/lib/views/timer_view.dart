@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/sleep_insights.dart';
 import '../core/theme.dart';
 import '../models/sleep_log.dart';
 import '../providers/home_provider.dart';
@@ -221,6 +222,8 @@ class _ElapsedDisplay extends ConsumerWidget {
   }
 }
 
+enum _ReflectStep { quality, factors, tips }
+
 class _QualitySheet extends ConsumerStatefulWidget {
   const _QualitySheet();
 
@@ -229,20 +232,58 @@ class _QualitySheet extends ConsumerStatefulWidget {
 }
 
 class _QualitySheetState extends ConsumerState<_QualitySheet> {
+  _ReflectStep _step = _ReflectStep.quality;
   double _quality = 80;
+  final Set<SleepFactor> _factors = {};
   bool _saving = false;
   String? _error;
 
+  bool get _isPoor => _quality.round() < kGoodQualityThreshold;
+
+  ({String emoji, String label}) get _qualityMood {
+    final q = _quality.round();
+    if (q >= 80) return (emoji: '😄', label: 'Great');
+    if (q >= 60) return (emoji: '🙂', label: 'Good');
+    if (q >= 40) return (emoji: '😐', label: 'Okay');
+    if (q >= 20) return (emoji: '😟', label: 'Restless');
+    return (emoji: '😴', label: 'Poor');
+  }
+
+  void _onPrimary() {
+    switch (_step) {
+      case _ReflectStep.quality:
+        if (_isPoor) {
+          setState(() => _step = _ReflectStep.factors);
+        } else {
+          _save();
+        }
+      case _ReflectStep.factors:
+        setState(() => _step = _ReflectStep.tips);
+      case _ReflectStep.tips:
+        _save();
+    }
+  }
+
   Future<void> _save() async {
-    setState(() { _saving = true; _error = null; });
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
 
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) {
-      setState(() { _saving = false; _error = 'You must be signed in to save a session.'; });
+      setState(() {
+        _saving = false;
+        _error = 'You must be signed in to save a session.';
+      });
       return;
     }
 
-    final log = ref.read(sleepTimerProvider.notifier).buildLog(userId: userId, quality: _quality.round());
+    final log = ref.read(sleepTimerProvider.notifier).buildLog(
+          userId: userId,
+          quality: _quality.round(),
+          factors: _factors.map((f) => f.key).toList(),
+        );
 
     try {
       await ref.read(sleepServiceProvider).addSleepLog(log);
@@ -250,7 +291,10 @@ class _QualitySheetState extends ConsumerState<_QualitySheet> {
       ref.invalidate(sleepLogsProvider);
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
-      setState(() { _saving = false; _error = 'Could not save session. Please try again.'; });
+      setState(() {
+        _saving = false;
+        _error = 'Could not save session. Please try again.';
+      });
     }
   }
 
@@ -262,60 +306,178 @@ class _QualitySheetState extends ConsumerState<_QualitySheet> {
         color: LullabyColors.surfaceContainer,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('How was your rest?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: LullabyColors.onSurface)),
-          const SizedBox(height: 4),
-          const Text('Rate the quality of this session', style: TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 13)),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('${_quality.round()}', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: LullabyColors.primary)),
-              const Text(' / 100', style: TextStyle(fontSize: 16, color: LullabyColors.onSurfaceVariant)),
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        alignment: Alignment.topCenter,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            switch (_step) {
+              _ReflectStep.quality => _buildQualityStep(),
+              _ReflectStep.factors => _buildFactorsStep(),
+              _ReflectStep.tips => _buildTipsStep(),
+            },
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(_error!, style: const TextStyle(color: LullabyColors.error, fontSize: 13)),
             ],
-          ),
-          Slider(
-            value: _quality,
-            min: 0,
-            max: 100,
-            divisions: 100,
-            label: '${_quality.round()}',
-            onChanged: _saving ? null : (v) => setState(() => _quality = v),
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 8),
-            Text(_error!, style: const TextStyle(color: LullabyColors.error, fontSize: 13)),
+            const SizedBox(height: 16),
+            _buildActions(),
           ],
-          const SizedBox(height: 16),
-          Row(
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQualityStep() {
+    final mood = _qualityMood;
+    return Column(
+      key: const ValueKey(_ReflectStep.quality),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('How was your rest?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: LullabyColors.onSurface)),
+        const SizedBox(height: 4),
+        const Text('Rate the quality of this session', style: TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 13)),
+        const SizedBox(height: 16),
+        Center(
+          child: Column(
             children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _saving ? null : () => Navigator.of(context).pop(false),
-                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
-                  child: const Text('Cancel'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DecoratedBox(
-                  decoration: LullabyDecorations.gradientButton(),
-                  child: FilledButton(
-                    onPressed: _saving ? null : _save,
-                    style: FilledButton.styleFrom(backgroundColor: Colors.transparent, minimumSize: const Size(0, 48)),
-                    child: _saving
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Text('Save', style: TextStyle(color: Colors.white)),
-                  ),
-                ),
+              Text(mood.emoji, style: const TextStyle(fontSize: 40)),
+              const SizedBox(height: 4),
+              Text(
+                '${_quality.round()}  ·  ${mood.label}',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: LullabyColors.primary),
               ),
             ],
           ),
-        ],
-      ),
+        ),
+        Slider(
+          value: _quality,
+          min: 0,
+          max: 100,
+          divisions: 100,
+          label: '${_quality.round()}',
+          onChanged: _saving ? null : (v) => setState(() => _quality = v),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFactorsStep() {
+    return Column(
+      key: const ValueKey(_ReflectStep.factors),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('What affected your rest?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: LullabyColors.onSurface)),
+        const SizedBox(height: 4),
+        const Text('Pick anything that applies — optional', style: TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 13)),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: SleepFactor.values.map((f) {
+            final selected = _factors.contains(f);
+            return FilterChip(
+              avatar: Icon(f.icon, size: 18, color: selected ? LullabyColors.onPrimaryContainer : LullabyColors.primary),
+              label: Text(f.label),
+              selected: selected,
+              showCheckmark: false,
+              backgroundColor: LullabyColors.surfaceContainerHigh,
+              selectedColor: LullabyColors.primaryContainer,
+              labelStyle: TextStyle(
+                color: selected ? LullabyColors.onPrimaryContainer : LullabyColors.onSurface,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+              side: BorderSide(color: selected ? Colors.transparent : LullabyColors.outlineVariant),
+              onSelected: _saving
+                  ? null
+                  : (v) => setState(() => v ? _factors.add(f) : _factors.remove(f)),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTipsStep() {
+    final tips = tipsForFactors(_factors);
+    return Column(
+      key: const ValueKey(_ReflectStep.tips),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Tips to improve', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: LullabyColors.onSurface)),
+        const SizedBox(height: 4),
+        const Text('Small changes for a better next session', style: TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 13)),
+        const SizedBox(height: 16),
+        ...tips.map(
+          (tip) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: LullabyColors.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: LullabyColors.outlineVariant),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.lightbulb_outline, size: 18, color: LullabyColors.primary),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(tip, style: const TextStyle(color: LullabyColors.onSurface, fontSize: 13, height: 1.3))),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActions() {
+    final isFirst = _step == _ReflectStep.quality;
+    final primaryLabel = switch (_step) {
+      _ReflectStep.quality => _isPoor ? 'Next' : 'Save',
+      _ReflectStep.factors => 'See tips',
+      _ReflectStep.tips => 'Save',
+    };
+
+    void onSecondary() {
+      if (isFirst) {
+        Navigator.of(context).pop(false);
+      } else {
+        setState(() {
+          _step = _step == _ReflectStep.tips ? _ReflectStep.factors : _ReflectStep.quality;
+        });
+      }
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: _saving ? null : onSecondary,
+            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+            child: Text(isFirst ? 'Cancel' : 'Back'),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: DecoratedBox(
+            decoration: LullabyDecorations.gradientButton(),
+            child: FilledButton(
+              onPressed: _saving ? null : _onPrimary,
+              style: FilledButton.styleFrom(backgroundColor: Colors.transparent, minimumSize: const Size(0, 48)),
+              child: _saving
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(primaryLabel, style: const TextStyle(color: Colors.white)),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
