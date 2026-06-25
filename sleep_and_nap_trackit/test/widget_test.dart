@@ -5,6 +5,7 @@ import 'package:sleep_and_nap_trackit/main.dart';
 import 'package:sleep_and_nap_trackit/providers/auth_provider.dart';
 import 'package:sleep_and_nap_trackit/providers/service_providers.dart';
 import 'package:sleep_and_nap_trackit/services/auth_service.dart';
+import 'package:sleep_and_nap_trackit/services/profile_service.dart';
 import 'package:sleep_and_nap_trackit/services/sleep_service.dart';
 
 void main() {
@@ -21,12 +22,13 @@ void main() {
     expect(find.text('Log In'), findsOneWidget);
   });
 
-  testWidgets('logs out from the home view', (tester) async {
+  testWidgets('logs out from the profile tab', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           authServiceProvider.overrideWithValue(MockAuthService()),
           sleepServiceProvider.overrideWithValue(MockSleepService()),
+          profileServiceProvider.overrideWithValue(MockProfileService()),
         ],
         child: const SleepTrackItApp(),
       ),
@@ -38,6 +40,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Today\'s rest dashboard'), findsOneWidget);
+
+    // Navigate to the Profile tab, then log out.
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Logout'));
     await tester.pumpAndSettle();

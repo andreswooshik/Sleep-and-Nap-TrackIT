@@ -3,8 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme.dart';
 import '../models/sleep_log.dart';
-import '../providers/auth_provider.dart';
-import '../providers/home_provider.dart';
+import '../viewmodels/dashboard_viewmodel.dart';
 import '../providers/sleep_timer_provider.dart';
 import 'timer_view.dart';
 
@@ -13,7 +12,7 @@ class HomeView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final logsAsync = ref.watch(sleepLogsProvider);
+    final statsAsync = ref.watch(dashboardStatsProvider);
 
     return Scaffold(
       body: Stack(
@@ -21,10 +20,10 @@ class HomeView extends ConsumerWidget {
           const AmbientGlow(color: LullabyColors.primaryContainer, alignment: Alignment(-0.6, -0.4)),
           AmbientGlow(color: LullabyColors.secondaryContainer, alignment: const Alignment(0.7, 0.8), radius: 250),
           SafeArea(
-            child: logsAsync.when(
+            child: statsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator(color: LullabyColors.primaryContainer)),
               error: (e, _) => Center(child: Text('Error: $e', style: const TextStyle(color: LullabyColors.error))),
-              data: (logs) => _HomeContent(logs: logs),
+              data: (stats) => _HomeContent(stats: stats),
             ),
           ),
         ],
@@ -34,73 +33,49 @@ class HomeView extends ConsumerWidget {
 }
 
 class _HomeContent extends StatelessWidget {
-  const _HomeContent({required this.logs});
+  const _HomeContent({required this.stats});
 
-  final List<SleepLog> logs;
-
-  SleepLog? get _latestSleep {
-    final sleepLogs = logs.where((log) => log.type == SleepLogType.sleep);
-    return sleepLogs.isEmpty ? null : sleepLogs.first;
-  }
-
-  Duration get _averageSleepDuration {
-    final sleepLogs = logs.where((log) => log.type == SleepLogType.sleep);
-    if (sleepLogs.isEmpty) return Duration.zero;
-    final totalMinutes = sleepLogs.fold<int>(0, (t, l) => t + l.duration.inMinutes);
-    return Duration(minutes: totalMinutes ~/ sleepLogs.length);
-  }
-
-  int get _napCount => logs.where((log) => log.type == SleepLogType.nap).length;
-
-  int get _averageQuality {
-    if (logs.isEmpty) return 0;
-    final total = logs.fold<int>(0, (sum, log) => sum + log.quality);
-    return (total / logs.length).round();
-  }
+  final DashboardStats stats;
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: () async {},
-      color: LullabyColors.primaryContainer,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-            sliver: SliverToBoxAdapter(child: _Header(latestSleep: _latestSleep)),
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+          sliver: SliverToBoxAdapter(child: _Header(latestSleep: stats.latestSleep)),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverToBoxAdapter(
+            child: _SummaryGrid(averageSleep: stats.averageSleepDuration, napCount: stats.napCount, averageQuality: stats.averageQuality),
           ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            sliver: SliverToBoxAdapter(
-              child: _SummaryGrid(averageSleep: _averageSleepDuration, napCount: _napCount, averageQuality: _averageQuality),
-            ),
-          ),
-          const SliverPadding(
-            padding: EdgeInsets.fromLTRB(20, 18, 20, 0),
-            sliver: SliverToBoxAdapter(child: _ActiveSessionBanner()),
-          ),
-          const SliverPadding(
-            padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
-            sliver: SliverToBoxAdapter(child: _QuickActions()),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
-            sliver: SliverToBoxAdapter(child: _RecentLogs(logs: logs)),
-          ),
-        ],
-      ),
+        ),
+        const SliverPadding(
+          padding: EdgeInsets.fromLTRB(20, 18, 20, 0),
+          sliver: SliverToBoxAdapter(child: _ActiveSessionBanner()),
+        ),
+        const SliverPadding(
+          padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
+          sliver: SliverToBoxAdapter(child: _QuickActions()),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
+          sliver: SliverToBoxAdapter(child: _RecentLogs(logs: stats.logs)),
+        ),
+      ],
     );
   }
 }
 
-class _Header extends ConsumerWidget {
+class _Header extends StatelessWidget {
   const _Header({required this.latestSleep});
 
   final SleepLog? latestSleep;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final duration = latestSleep == null ? '--' : _formatDuration(latestSleep!.duration);
 
@@ -128,16 +103,6 @@ class _Header extends ConsumerWidget {
                     Text('Sleep and Nap TrackIT', style: theme.textTheme.titleLarge?.copyWith(color: LullabyColors.primary)),
                     Text('Today\'s rest dashboard', style: theme.textTheme.bodyMedium?.copyWith(color: LullabyColors.onSurfaceVariant)),
                   ],
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => ref.read(authProvider.notifier).signOut(),
-                icon: const Icon(Icons.logout_rounded, size: 18),
-                label: const Text('Logout'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: LullabyColors.primary,
-                  side: const BorderSide(color: LullabyColors.outlineVariant),
-                  minimumSize: const Size(96, 40),
                 ),
               ),
             ],
