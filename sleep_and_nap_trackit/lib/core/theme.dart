@@ -1,7 +1,6 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 // ---------------------------------------------------------------------------
 // Colors
@@ -202,23 +201,25 @@ ThemeData buildLullabyTheme() {
     surfaceContainerHighest: LullabyColors.surfaceContainerHighest,
   );
 
-  final baseText = GoogleFonts.interTextTheme(ThemeData.dark().textTheme);
-  final textTheme = baseText.copyWith(
-    displayLarge: GoogleFonts.manrope(fontSize: 57, fontWeight: FontWeight.w800, color: LullabyColors.onSurface),
-    displayMedium: GoogleFonts.manrope(fontSize: 45, fontWeight: FontWeight.w800, color: LullabyColors.onSurface),
-    displaySmall: GoogleFonts.manrope(fontSize: 36, fontWeight: FontWeight.w900, color: LullabyColors.onSurface),
-    headlineLarge: GoogleFonts.manrope(fontSize: 32, fontWeight: FontWeight.w800, color: LullabyColors.onSurface, letterSpacing: -0.5),
-    headlineMedium: GoogleFonts.manrope(fontSize: 24, fontWeight: FontWeight.w700, color: LullabyColors.onSurface),
-    headlineSmall: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.w700, color: LullabyColors.onSurface),
-    titleLarge: GoogleFonts.manrope(fontSize: 22, fontWeight: FontWeight.w800, color: LullabyColors.onSurface),
-    titleMedium: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: LullabyColors.onSurface),
-    titleSmall: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: LullabyColors.onSurface),
-    bodyLarge: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w400, color: LullabyColors.onSurface),
-    bodyMedium: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w400, color: LullabyColors.onSurfaceVariant),
-    bodySmall: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w400, color: LullabyColors.onSurfaceVariant),
-    labelLarge: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: LullabyColors.onSurface),
-    labelMedium: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: LullabyColors.onSurfaceVariant),
-    labelSmall: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500, color: LullabyColors.onSurfaceVariant),
+  const headlineStyle = TextStyle(fontWeight: FontWeight.w800, color: LullabyColors.onSurface);
+  const bodyStyle = TextStyle(fontWeight: FontWeight.w400, color: LullabyColors.onSurfaceVariant);
+
+  final textTheme = ThemeData.dark().textTheme.copyWith(
+    displayLarge: headlineStyle.copyWith(fontSize: 57),
+    displayMedium: headlineStyle.copyWith(fontSize: 45),
+    displaySmall: headlineStyle.copyWith(fontSize: 36, fontWeight: FontWeight.w900),
+    headlineLarge: headlineStyle.copyWith(fontSize: 32, letterSpacing: -0.5),
+    headlineMedium: headlineStyle.copyWith(fontSize: 24, fontWeight: FontWeight.w700),
+    headlineSmall: headlineStyle.copyWith(fontSize: 20, fontWeight: FontWeight.w700),
+    titleLarge: headlineStyle.copyWith(fontSize: 22),
+    titleMedium: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: LullabyColors.onSurface),
+    titleSmall: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: LullabyColors.onSurface),
+    bodyLarge: const TextStyle(fontSize: 16, fontWeight: FontWeight.w400, color: LullabyColors.onSurface),
+    bodyMedium: bodyStyle.copyWith(fontSize: 14),
+    bodySmall: bodyStyle.copyWith(fontSize: 12),
+    labelLarge: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: LullabyColors.onSurface),
+    labelMedium: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: LullabyColors.onSurfaceVariant),
+    labelSmall: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: LullabyColors.onSurfaceVariant),
   );
 
   return ThemeData(

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/theme.dart';
@@ -208,7 +207,7 @@ class _ElapsedDisplay extends ConsumerWidget {
 
     return Text(
       _formatElapsed(elapsed),
-      style: GoogleFonts.manrope(
+      style: TextStyle(
         color: LullabyColors.primary,
         fontSize: 72,
         fontWeight: FontWeight.w900,
