@@ -6,7 +6,6 @@ import '../core/sleep_insights.dart';
 import '../core/theme.dart';
 import '../models/sleep_log.dart';
 import '../providers/home_provider.dart';
-import '../providers/service_providers.dart';
 import '../providers/sleep_timer_provider.dart';
 
 class TimerView extends ConsumerStatefulWidget {
@@ -286,9 +285,8 @@ class _QualitySheetState extends ConsumerState<_QualitySheet> {
         );
 
     try {
-      await ref.read(sleepServiceProvider).addSleepLog(log);
+      await ref.read(sleepLogsProvider.notifier).add(log);
       ref.read(sleepTimerProvider.notifier).reset();
-      ref.invalidate(sleepLogsProvider);
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       setState(() {
