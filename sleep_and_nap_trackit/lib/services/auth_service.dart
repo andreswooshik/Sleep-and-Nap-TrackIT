@@ -20,6 +20,7 @@ abstract class AuthService {
   Future<void> signOut();
   bool get isAuthenticated;
   String? get currentUserId;
+  String? get currentUserEmail;
 }
 
 class SupabaseAuthService implements AuthService {
@@ -30,6 +31,9 @@ class SupabaseAuthService implements AuthService {
 
   @override
   String? get currentUserId => _client.auth.currentUser?.id;
+
+  @override
+  String? get currentUserEmail => _client.auth.currentUser?.email;
 
   @override
   Future<void> signIn({required String email, required String password}) async {
@@ -89,6 +93,9 @@ class MockAuthService implements AuthService {
 
   @override
   String? get currentUserId => _authenticated ? 'mock-user-id' : null;
+
+  @override
+  String? get currentUserEmail => _authenticated ? _validEmail : null;
 
   @override
   Future<void> signIn({required String email, required String password}) async {

@@ -8,6 +8,7 @@ class SleepLog {
     required this.startedAt,
     required this.endedAt,
     required this.quality,
+    this.factors = const [],
   });
 
   final String? id;
@@ -16,6 +17,10 @@ class SleepLog {
   final DateTime startedAt;
   final DateTime endedAt;
   final int quality;
+
+  /// Keys of the factors the user flagged as affecting a poor session.
+  /// Maps to the `factors` text[] column in Supabase.
+  final List<String> factors;
 
   Duration get duration => endedAt.difference(startedAt);
 
@@ -27,6 +32,7 @@ class SleepLog {
         'started_at': startedAt.toIso8601String(),
         'ended_at': endedAt.toIso8601String(),
         'quality': quality,
+        'factors': factors,
       };
 
   factory SleepLog.fromJson(Map<String, dynamic> json) => SleepLog(
@@ -38,5 +44,6 @@ class SleepLog {
         startedAt: DateTime.parse(json['started_at'] as String),
         endedAt: DateTime.parse(json['ended_at'] as String),
         quality: json['quality'] as int,
+        factors: (json['factors'] as List<dynamic>?)?.cast<String>() ?? const [],
       );
 }

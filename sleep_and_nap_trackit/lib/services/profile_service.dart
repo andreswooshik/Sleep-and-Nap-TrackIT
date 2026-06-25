@@ -36,3 +36,22 @@ class SupabaseProfileService implements ProfileService {
     await _client.from('profiles').update(profile.toJson()).eq('id', profile.id);
   }
 }
+
+class MockProfileService implements ProfileService {
+  MockProfileService([this._profile]);
+
+  Profile? _profile;
+
+  @override
+  Future<void> createProfile(Profile profile) async {
+    _profile = profile;
+  }
+
+  @override
+  Future<Profile?> getProfile() async => _profile;
+
+  @override
+  Future<void> updateProfile(Profile profile) async {
+    _profile = profile;
+  }
+}

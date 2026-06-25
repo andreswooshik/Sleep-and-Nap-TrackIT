@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/supabase_config.dart';
+import 'core/theme.dart';
 import 'providers/auth_provider.dart';
 import 'views/auth_view.dart';
-import 'views/home_view.dart';
+import 'views/main_shell.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,22 +28,14 @@ class SleepTrackItApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    const seed = Color(0xFF526D82);
     final authState = ref.watch(authProvider);
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Sleep and Nap TrackIT',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: seed,
-          brightness: Brightness.light,
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF6F3EC),
-        useMaterial3: true,
-      ),
+      theme: buildLullabyTheme(),
       home: authState.phase == AuthPhase.authorized
-          ? const HomeView()
+          ? const MainShell()
           : const AuthView(),
     );
   }

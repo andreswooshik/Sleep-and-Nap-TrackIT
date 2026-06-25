@@ -34,6 +34,28 @@ class Profile {
     return '$lastName, $firstName$mi';
   }
 
+  Profile copyWith({
+    String? gender,
+    int? sleepGoalHours,
+    String? napHabit,
+    bool? notificationsEnabled,
+  }) {
+    return Profile(
+      id: id,
+      firstName: firstName,
+      lastName: lastName,
+      middleInitial: middleInitial,
+      dateOfBirth: dateOfBirth,
+      usualBedtime: usualBedtime,
+      usualWakeUpTime: usualWakeUpTime,
+      gender: gender ?? this.gender,
+      sleepGoalHours: sleepGoalHours ?? this.sleepGoalHours,
+      napHabit: napHabit ?? this.napHabit,
+      notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+      createdAt: createdAt,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'first_name': firstName,
