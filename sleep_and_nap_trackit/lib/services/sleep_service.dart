@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/sleep_log.dart';
@@ -8,6 +10,10 @@ import '../models/sleep_log.dart';
 /// store. Higher layers (the repository) own caching and local-list state.
 abstract class SleepService {
   Future<List<SleepLog>> getSleepLogs();
+
+  /// Emits the current logs and re-emits the full list whenever the remote
+  /// table changes, so the UI can update instantly on database changes.
+  Stream<List<SleepLog>> watchSleepLogs();
 
   /// Persists [log] and returns it as stored, including the server-assigned
   /// `id` so callers can track the row locally.
@@ -35,6 +41,19 @@ class SupabaseSleepService implements SleepService {
         .order('started_at', ascending: false);
 
     return data.map((json) => SleepLog.fromJson(json)).toList();
+  }
+
+  @override
+  Stream<List<SleepLog>> watchSleepLogs() {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return Stream.value(const []);
+
+    return _client
+        .from('sleep_logs')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .order('started_at', ascending: false)
+        .map((rows) => rows.map(SleepLog.fromJson).toList());
   }
 
   @override
@@ -101,18 +120,30 @@ class MockSleepService implements SleepService {
   final List<SleepLog> _logs = [];
   int _nextId = 100;
 
+  // Fires after every mutation so watchSleepLogs() can re-emit a fresh snapshot.
+  final StreamController<void> _changes = StreamController<void>.broadcast();
+
+  List<SleepLog> _snapshot() {
+    return [..._logs]..sort((a, b) => b.startedAt.compareTo(a.startedAt));
+  }
+
   @override
   Future<List<SleepLog>> getSleepLogs() async {
     await Future<void>.delayed(const Duration(milliseconds: 350));
-    final copy = [..._logs]
-      ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
-    return copy;
+    return _snapshot();
+  }
+
+  @override
+  Stream<List<SleepLog>> watchSleepLogs() async* {
+    yield _snapshot();
+    yield* _changes.stream.map((_) => _snapshot());
   }
 
   @override
   Future<SleepLog> addSleepLog(SleepLog log) async {
     final stored = log.copyWith(id: 'mock-${_nextId++}');
     _logs.add(stored);
+    _changes.add(null);
     return stored;
   }
 
@@ -120,11 +151,13 @@ class MockSleepService implements SleepService {
   Future<SleepLog> updateSleepLog(SleepLog log) async {
     final index = _logs.indexWhere((l) => l.id == log.id);
     if (index != -1) _logs[index] = log;
+    _changes.add(null);
     return log;
   }
 
   @override
   Future<void> deleteSleepLog(String id) async {
     _logs.removeWhere((l) => l.id == id);
+    _changes.add(null);
   }
 }
