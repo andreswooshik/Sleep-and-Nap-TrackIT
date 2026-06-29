@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/reminder_schedule.dart';
+import '../core/sleep_format.dart';
 import '../core/sleep_recommendation.dart';
 import '../core/theme.dart';
 import '../models/sleep_log.dart';
@@ -50,12 +51,12 @@ class _HomeContent extends StatelessWidget {
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-          sliver: SliverToBoxAdapter(child: _Header(latestSleep: stats.latestSleep)),
+          sliver: SliverToBoxAdapter(child: _Header(sleepToday: stats.sleepToday)),
         ),
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           sliver: SliverToBoxAdapter(
-            child: _SummaryGrid(averageSleep: stats.averageSleepDuration, napCount: stats.napCount, averageQuality: stats.averageQuality),
+            child: _SummaryGrid(averageSleep: stats.averageSleepDuration, napCount: stats.napCount, averageQuality: stats.averageQuality, sleepStreak: stats.sleepStreak),
           ),
         ),
         const SliverPadding(
@@ -88,14 +89,14 @@ class _HomeContent extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.latestSleep});
+  const _Header({required this.sleepToday});
 
-  final SleepLog? latestSleep;
+  final Duration sleepToday;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final duration = latestSleep == null ? '--' : _formatDuration(latestSleep!.duration);
+    final duration = _formatHm(sleepToday);
 
     return GlassCard(
       padding: const EdgeInsets.all(22),
@@ -128,7 +129,7 @@ class _Header extends StatelessWidget {
           const SizedBox(height: 24),
           Text(duration, style: theme.textTheme.displaySmall?.copyWith(color: LullabyColors.primary)),
           const SizedBox(height: 6),
-          Text('last overnight sleep', style: theme.textTheme.bodyLarge?.copyWith(color: LullabyColors.onSurfaceVariant)),
+          Text('sleep logged today', style: theme.textTheme.bodyLarge?.copyWith(color: LullabyColors.onSurfaceVariant)),
         ],
       ),
     );
@@ -136,28 +137,36 @@ class _Header extends StatelessWidget {
 }
 
 class _SummaryGrid extends StatelessWidget {
-  const _SummaryGrid({required this.averageSleep, required this.napCount, required this.averageQuality});
+  const _SummaryGrid({
+    required this.averageSleep,
+    required this.napCount,
+    required this.averageQuality,
+    required this.sleepStreak,
+  });
 
   final Duration averageSleep;
   final int napCount;
   final int averageQuality;
+  final int sleepStreak;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 520;
+        // Balanced 2x2 on phones; a single row of 4 on wide tablets.
+        final isWide = constraints.maxWidth >= 600;
         return GridView.count(
-          crossAxisCount: isWide ? 3 : 2,
-          childAspectRatio: isWide ? 1.55 : 1.25,
+          crossAxisCount: isWide ? 4 : 2,
+          childAspectRatio: isWide ? 1.3 : 1.25,
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           children: [
-            _MetricCard(icon: Icons.schedule_rounded, label: 'Average sleep', value: _formatDuration(averageSleep), color: LullabyColors.primary),
+            _MetricCard(icon: Icons.schedule_rounded, label: 'Average sleep', value: formatAverageSleep(averageSleep), color: LullabyColors.primary),
             _MetricCard(icon: Icons.spa_rounded, label: 'Naps logged', value: '$napCount', color: LullabyColors.secondary),
-            _MetricCard(icon: Icons.favorite_rounded, label: 'Rest quality', value: '$averageQuality%', color: LullabyColors.tertiary),
+            _MetricCard(icon: Icons.favorite_rounded, label: 'Rest quality', value: formatQuality(averageQuality), color: LullabyColors.tertiary),
+            _MetricCard(icon: Icons.local_fire_department_rounded, label: 'Sleep streak', value: sleepStreak == 1 ? '1 day' : '$sleepStreak days', color: LullabyColors.primaryContainer),
           ],
         );
       },
@@ -291,7 +300,9 @@ class _ActiveSessionBanner extends ConsumerWidget {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => TimerView(type: type))),
-            child: const Text('Resume'),
+            // Running sessions are already counting — "Open" the live timer;
+            // a stopped session needs saving — "Finish" it.
+            child: Text(isStopped ? 'Finish' : 'Open'),
           ),
         ],
       ),

@@ -10,19 +10,31 @@ import '../providers/profile_provider.dart';
 class DashboardStats {
   const DashboardStats({
     required this.latestSleep,
+    required this.sleepToday,
     required this.averageSleepDuration,
     required this.napCount,
     required this.averageQuality,
+    required this.sleepStreak,
     required this.logs,
   });
 
   final SleepLog? latestSleep;
+
+  /// Total sleep logged today — shown in the header so it agrees with the
+  /// "Today" card rather than reporting the most recent session ever.
+  final Duration sleepToday;
+
   final Duration averageSleepDuration;
   final int napCount;
   final int averageQuality;
+
+  /// Consecutive days (counting back from today, with a one-day grace if today
+  /// isn't logged yet) that have at least one sleep session.
+  final int sleepStreak;
+
   final List<SleepLog> logs;
 
-  factory DashboardStats.fromLogs(List<SleepLog> logs) {
+  factory DashboardStats.fromLogs(List<SleepLog> logs, {DateTime? now}) {
     final sleeps = logs.where((l) => l.type == SleepLogType.sleep).toList();
 
     final avg = sleeps.isEmpty
@@ -35,11 +47,38 @@ class DashboardStats {
         ? 0
         : (logs.fold<int>(0, (s, l) => s + l.quality) / logs.length).round();
 
+    final today = now ?? DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final sleepTodayMinutes = sleeps
+        .where((l) =>
+            l.startedAt.year == today.year &&
+            l.startedAt.month == today.month &&
+            l.startedAt.day == today.day)
+        .fold<int>(0, (s, l) => s + l.duration.inMinutes);
+
+    // Set of distinct calendar days that have at least one sleep session.
+    final sleepDays = sleeps
+        .map((l) => DateTime(l.startedAt.year, l.startedAt.month, l.startedAt.day))
+        .toSet();
+
+    // Count back from today; allow a one-day grace if today isn't logged yet.
+    var cursor = todayDate;
+    if (!sleepDays.contains(cursor)) {
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+    var streak = 0;
+    while (sleepDays.contains(cursor)) {
+      streak++;
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+
     return DashboardStats(
       latestSleep: sleeps.isEmpty ? null : sleeps.first,
+      sleepToday: Duration(minutes: sleepTodayMinutes),
       averageSleepDuration: avg,
       napCount: logs.where((l) => l.type == SleepLogType.nap).length,
       averageQuality: avgQuality,
+      sleepStreak: streak,
       logs: logs,
     );
   }
