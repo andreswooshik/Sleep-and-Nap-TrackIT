@@ -88,7 +88,9 @@ QualityCriterion _sleepDuration(Duration duration, SleepRecommendation? rec) {
 
   if (hours < min) {
     final deficit = min - hours;
-    final impact = -(deficit * 10).round().clamp(0, 45).toInt();
+    // ~14 pts per hour short, so a couple of hours under is clearly Fair and
+    // severe deprivation (≈0h) bottoms out Poor — not a lenient mid-score.
+    final impact = -(deficit * 14).round().clamp(0, 80).toInt();
     return QualityCriterion(
       label: 'Duration',
       detail: '${_fmtH(deficit)} under your $range range',
@@ -97,7 +99,8 @@ QualityCriterion _sleepDuration(Duration duration, SleepRecommendation? rec) {
   }
   if (hours > max) {
     final excess = hours - max;
-    final impact = -(excess * 6).round().clamp(0, 25).toInt();
+    // Oversleeping hurts quality less than deprivation, so penalise it gentler.
+    final impact = -(excess * 6).round().clamp(0, 30).toInt();
     return QualityCriterion(
       label: 'Duration',
       detail: '${_fmtH(excess)} over your $range range',
@@ -114,10 +117,15 @@ QualityCriterion _sleepDuration(Duration duration, SleepRecommendation? rec) {
 QualityCriterion _napDuration(Duration duration) {
   final mins = duration.inMinutes;
   if (mins < kNapIdealMinMinutes) {
-    final impact = -((kNapIdealMinMinutes - mins) * 1.5).round().clamp(0, 20).toInt();
+    // Scale the penalty by how far below the ideal window it falls, so a
+    // near-zero nap scores genuinely low (not a misleadingly high number).
+    final shortfall = (kNapIdealMinMinutes - mins) / kNapIdealMinMinutes; // 0..1
+    final impact = -(shortfall * 70).round().clamp(0, 70).toInt();
     return QualityCriterion(
       label: 'Nap length',
-      detail: 'Very short — under $kNapIdealMinMinutes min',
+      detail: mins <= 0
+          ? 'Too short to count as real rest'
+          : 'Very short — under $kNapIdealMinMinutes min',
       impact: impact,
     );
   }

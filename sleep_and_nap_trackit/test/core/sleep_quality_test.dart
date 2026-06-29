@@ -29,6 +29,24 @@ void main() {
       expect(r.criteria.first.impact, lessThan(0));
     });
 
+    test('severe deprivation bottoms out as Poor, not a mid-score', () {
+      final twoHours = rateSleepQuality(
+        type: SleepLogType.sleep,
+        duration: const Duration(hours: 2),
+        recommendation: adult,
+      );
+      expect(twoHours.score, lessThan(50));
+      expect(twoHours.label, 'Poor');
+
+      // A 4h sleep should not be flattered as "Good".
+      final fourHours = rateSleepQuality(
+        type: SleepLogType.sleep,
+        duration: const Duration(hours: 4),
+        recommendation: adult,
+      );
+      expect(fourHours.score, lessThan(70));
+    });
+
     test('oversleeping is penalised more gently than undersleeping', () {
       final under = rateSleepQuality(
         type: SleepLogType.sleep,
@@ -75,6 +93,23 @@ void main() {
       );
       expect(r.criteria.first.impact, 0);
       expect(r.label, 'Excellent');
+    });
+
+    test('a near-zero nap scores low, not high', () {
+      final zero = rateSleepQuality(
+        type: SleepLogType.nap,
+        duration: Duration.zero,
+      );
+      expect(zero.score, lessThanOrEqualTo(40));
+      expect(zero.label, anyOf('Poor', 'Fair'));
+
+      // A short-but-real 5-min nap sits between zero and the ideal window.
+      final five = rateSleepQuality(
+        type: SleepLogType.nap,
+        duration: const Duration(minutes: 5),
+      );
+      expect(five.score, greaterThan(zero.score));
+      expect(five.score, lessThan(100));
     });
 
     test('an overly long nap is penalised for grogginess', () {
