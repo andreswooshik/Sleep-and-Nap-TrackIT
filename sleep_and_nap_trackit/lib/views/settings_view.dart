@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/reminder_schedule.dart';
 import '../core/theme.dart';
 import '../models/profile.dart';
 import '../providers/auth_provider.dart';
 import '../providers/profile_provider.dart';
+import '../viewmodels/reminder_settings_viewmodel.dart';
 
 class SettingsView extends ConsumerWidget {
   const SettingsView({super.key});
@@ -78,8 +80,17 @@ class _SettingsList extends ConsumerWidget {
           _SleepGoalTile(profile: profile!),
           const SizedBox(height: 10),
           _NapHabitTile(profile: profile!),
-          const SizedBox(height: 10),
+          const SizedBox(height: 24),
+
+          Text('Reminders & alarm', style: theme.textTheme.titleMedium?.copyWith(color: LullabyColors.primary)),
+          const SizedBox(height: 12),
           _NotificationsTile(profile: profile!),
+          if (profile!.notificationsEnabled) ...[
+            const SizedBox(height: 10),
+            _BedtimeReminderTile(profile: profile!),
+            const SizedBox(height: 10),
+            _WakeAlarmTile(profile: profile!),
+          ],
           const SizedBox(height: 24),
         ],
 
@@ -172,15 +183,91 @@ class _NotificationsTile extends ConsumerWidget {
     return _PrefShell(
       icon: Icons.notifications_rounded,
       iconColor: LullabyColors.tertiary,
-      title: 'Notifications',
-      subtitle: 'Bedtime reminders',
+      title: 'Reminders & alarm',
+      subtitle: 'Bedtime reminder and wake-up alarm',
       trailing: Switch.adaptive(
         value: profile.notificationsEnabled,
         activeTrackColor: LullabyColors.primaryContainer,
         onChanged: (v) {
-          ref.read(profileControllerProvider).update(profile.copyWith(notificationsEnabled: v));
+          ref.read(reminderSettingsControllerProvider).setEnabled(profile, v);
         },
       ),
+    );
+  }
+}
+
+class _BedtimeReminderTile extends ConsumerWidget {
+  const _BedtimeReminderTile({required this.profile});
+
+  final Profile profile;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final time = ClockTime.tryParse(profile.usualBedtime) ?? const ClockTime(22, 0);
+    return _PrefShell(
+      icon: Icons.bedtime_outlined,
+      iconColor: LullabyColors.primary,
+      title: 'Bedtime reminder',
+      subtitle: 'Nudge to log your sleep',
+      trailing: _TimeButton(
+        time: time,
+        onPicked: (picked) =>
+            ref.read(reminderSettingsControllerProvider).setBedtime(profile, picked),
+      ),
+    );
+  }
+}
+
+class _WakeAlarmTile extends ConsumerWidget {
+  const _WakeAlarmTile({required this.profile});
+
+  final Profile profile;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final time = ClockTime.tryParse(profile.usualWakeUpTime) ?? const ClockTime(7, 0);
+    return _PrefShell(
+      icon: Icons.alarm_rounded,
+      iconColor: LullabyColors.secondary,
+      title: 'Wake-up alarm',
+      subtitle: 'Daily alarm time',
+      trailing: _TimeButton(
+        time: time,
+        onPicked: (picked) =>
+            ref.read(reminderSettingsControllerProvider).setWakeTime(profile, picked),
+      ),
+    );
+  }
+}
+
+/// A pill button showing a [ClockTime] that opens the time picker on tap.
+class _TimeButton extends StatelessWidget {
+  const _TimeButton({required this.time, required this.onPicked});
+
+  final ClockTime time;
+  final ValueChanged<ClockTime> onPicked;
+
+  String get _label {
+    final hour = time.hour % 12 == 0 ? 12 : time.hour % 12;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.hour < 12 ? 'AM' : 'PM';
+    return '$hour:$minute $period';
+  }
+
+  Future<void> _pick(BuildContext context) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: time.hour, minute: time.minute),
+    );
+    if (picked != null) onPicked(ClockTime(picked.hour, picked.minute));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: () => _pick(context),
+      icon: const Icon(Icons.schedule_rounded, size: 16, color: LullabyColors.primary),
+      label: Text(_label, style: const TextStyle(color: LullabyColors.primary, fontWeight: FontWeight.w700, fontSize: 14)),
     );
   }
 }
