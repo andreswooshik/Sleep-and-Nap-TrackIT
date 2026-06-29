@@ -1,30 +1,54 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:sleep_and_nap_trackit/main.dart';
+import 'package:sleep_and_nap_trackit/providers/auth_provider.dart';
+import 'package:sleep_and_nap_trackit/providers/service_providers.dart';
+import 'package:sleep_and_nap_trackit/services/auth_service.dart';
+import 'package:sleep_and_nap_trackit/services/profile_service.dart';
+import 'package:sleep_and_nap_trackit/services/sleep_service.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
-
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+  testWidgets('renders auth view when not authenticated', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [authServiceProvider.overrideWithValue(MockAuthService())],
+        child: const SleepTrackItApp(),
+      ),
+    );
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Sleep and Nap TrackIT'), findsOneWidget);
+    expect(find.text('Log In'), findsOneWidget);
+  });
+
+  testWidgets('logs out from the profile tab', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider.overrideWithValue(MockAuthService()),
+          sleepServiceProvider.overrideWithValue(MockSleepService()),
+          profileServiceProvider.overrideWithValue(MockProfileService()),
+        ],
+        child: const SleepTrackItApp(),
+      ),
+    );
+
+    await tester.enterText(find.byType(EditableText).at(0), 'test@example.com');
+    await tester.enterText(find.byType(EditableText).at(1), 'password123');
+    await tester.tap(find.text('Log In'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Today\'s rest dashboard'), findsOneWidget);
+
+    // Navigate to the Profile tab, then log out.
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Logout'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Log In'), findsOneWidget);
+    expect(find.text('Today\'s rest dashboard'), findsNothing);
   });
 }
