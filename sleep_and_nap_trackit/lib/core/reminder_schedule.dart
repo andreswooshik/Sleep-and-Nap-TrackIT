@@ -15,6 +15,12 @@ DateTime nextDailyOccurrence(int hour, int minute, DateTime from) {
   return candidate;
 }
 
+/// Resolves a per-session wake alarm for [hour]:[minute] relative to [from]:
+/// the next occurrence of that clock time, strictly after [from]. Identical to
+/// [nextDailyOccurrence] but named for the session-alarm use case.
+DateTime sessionAlarmAt(int hour, int minute, DateTime from) =>
+    nextDailyOccurrence(hour, minute, from);
+
 /// An hour/minute pair, parsed from the `"HH:mm[:ss]"` strings the profile
 /// stores for bedtime and wake-up time.
 class ClockTime {
@@ -22,6 +28,16 @@ class ClockTime {
 
   final int hour;
   final int minute;
+
+  /// Minutes since midnight (0–1439) — convenient for clock arithmetic.
+  int get minutesOfDay => hour * 60 + minute;
+
+  /// Builds a [ClockTime] from [minutes] since midnight, wrapping across day
+  /// boundaries so e.g. `-90` -> 22:30 and `1500` -> 01:00.
+  factory ClockTime.fromMinutesOfDay(int minutes) {
+    final wrapped = ((minutes % 1440) + 1440) % 1440;
+    return ClockTime(wrapped ~/ 60, wrapped % 60);
+  }
 
   /// Parses `"22:00"` or `"22:00:00"`. Returns null on malformed input rather
   /// than throwing, so callers can fall back to a default.
@@ -40,6 +56,13 @@ class ClockTime {
   /// Serialises back to the profile's `"HH:mm:00"` storage format.
   String toStorageString() =>
       '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}:00';
+
+  /// 12-hour display label, e.g. `"2:30 AM"`.
+  String get label12h {
+    final h = hour % 12 == 0 ? 12 : hour % 12;
+    final m = minute.toString().padLeft(2, '0');
+    return '$h:$m ${hour < 12 ? 'AM' : 'PM'}';
+  }
 
   @override
   bool operator ==(Object other) =>

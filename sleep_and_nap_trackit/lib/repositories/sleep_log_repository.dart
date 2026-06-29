@@ -49,15 +49,26 @@ class SleepLogRepository extends AsyncNotifier<List<SleepLog>> {
     state = await AsyncValue.guard(_service.getSleepLogs);
   }
 
-  /// Persists [log] to the cloud. The realtime stream re-emits with the stored
-  /// row (including its server-assigned id), updating [state] automatically.
+  /// Persists [log] to the cloud and merges the stored row (with its
+  /// server-assigned id) into local state immediately, so the UI updates even
+  /// if realtime replication isn't delivering self-inserts. If the realtime
+  /// stream also re-emits, the id-dedup below prevents a duplicate.
   Future<void> add(SleepLog log) async {
-    await _service.addSleepLog(log);
+    final stored = await _service.addSleepLog(log);
+    final current = state.valueOrNull ?? const [];
+    if (current.any((l) => l.id != null && l.id == stored.id)) return;
+    state = AsyncValue.data(_sorted([...current, stored]));
   }
 
-  /// Saves edits to [log] remotely; the realtime stream reflects the change.
+  /// Saves edits to [log] remotely and reflects them locally right away
+  /// (realtime, if enabled, will reconcile to the same state).
   Future<void> edit(SleepLog log) async {
-    await _service.updateSleepLog(log);
+    final stored = await _service.updateSleepLog(log);
+    final current = state.valueOrNull ?? const [];
+    state = AsyncValue.data(_sorted([
+      for (final entry in current)
+        if (entry.id == stored.id) stored else entry,
+    ]));
   }
 
   /// Removes the log with [id] from the local list immediately, then deletes it

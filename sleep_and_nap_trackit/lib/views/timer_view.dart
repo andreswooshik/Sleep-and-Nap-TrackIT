@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/reminder_schedule.dart';
 import '../core/sleep_insights.dart';
+import '../core/sleep_quality.dart';
+import '../core/sleep_recommendation.dart';
 import '../core/theme.dart';
 import '../models/sleep_log.dart';
 import '../providers/home_provider.dart';
+import '../providers/profile_provider.dart';
+import '../providers/service_providers.dart';
 import '../providers/sleep_timer_provider.dart';
 
 class TimerView extends ConsumerStatefulWidget {
@@ -18,6 +23,9 @@ class TimerView extends ConsumerStatefulWidget {
 }
 
 class _TimerViewState extends ConsumerState<TimerView> {
+  /// When set, a one-shot "wake me" alarm scheduled for this session.
+  DateTime? _alarmAt;
+
   @override
   void initState() {
     super.initState();
@@ -29,8 +37,53 @@ class _TimerViewState extends ConsumerState<TimerView> {
     });
   }
 
+  bool get _isNap => ref.read(sleepTimerProvider).type == SleepLogType.nap;
+
+  Future<void> _setSessionAlarm() async {
+    final picked = _isNap
+        ? await _pickNapDuration()
+        : await _pickSleepWakeTime();
+    if (picked == null) return;
+
+    await ref.read(reminderServiceProvider).scheduleSessionAlarm(
+          at: picked,
+          label: _isNap ? 'Nap over — time to wake up' : 'Wake up',
+        );
+    if (mounted) setState(() => _alarmAt = picked);
+  }
+
+  Future<void> _clearSessionAlarm() async {
+    await ref.read(reminderServiceProvider).cancelSessionAlarm();
+    if (mounted) setState(() => _alarmAt = null);
+  }
+
+  /// Nap: "wake me in N minutes" -> a one-shot alarm N minutes from now.
+  Future<DateTime?> _pickNapDuration() async {
+    final minutes = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: LullabyColors.surfaceContainer,
+      builder: (_) => const _NapDurationSheet(),
+    );
+    if (minutes == null) return null;
+    return DateTime.now().add(Duration(minutes: minutes));
+  }
+
+  /// Sleep: pick the wall-clock time to wake -> next occurrence of that time.
+  Future<DateTime?> _pickSleepWakeTime() async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 7, minute: 0),
+      helpText: 'Set wake-up alarm',
+    );
+    if (time == null) return null;
+    return sessionAlarmAt(time.hour, time.minute, DateTime.now());
+  }
+
   Future<void> _handleStop() async {
     ref.read(sleepTimerProvider.notifier).stop();
+    // The session is over — drop any pending wake alarm.
+    await ref.read(reminderServiceProvider).cancelSessionAlarm();
+    if (mounted) _alarmAt = null;
     await _showQualitySheet();
   }
 
@@ -49,6 +102,7 @@ class _TimerViewState extends ConsumerState<TimerView> {
 
   void _handleDiscard() {
     ref.read(sleepTimerProvider.notifier).reset();
+    ref.read(reminderServiceProvider).cancelSessionAlarm();
     Navigator.of(context).pop();
   }
 
@@ -131,6 +185,12 @@ class _TimerViewState extends ConsumerState<TimerView> {
                   ),
                   const Spacer(),
                   if (!isStopped) ...[
+                    _AlarmRow(
+                      alarmAt: _alarmAt,
+                      onSet: _setSessionAlarm,
+                      onClear: _clearSessionAlarm,
+                    ),
+                    const SizedBox(height: 12),
                     SizedBox(
                       height: 56,
                       child: FilledButton.icon(
@@ -221,6 +281,95 @@ class _ElapsedDisplay extends ConsumerWidget {
   }
 }
 
+/// Shows the per-session wake alarm: a "Set wake alarm" button, or the
+/// scheduled time with a clear action once set.
+class _AlarmRow extends StatelessWidget {
+  const _AlarmRow({required this.alarmAt, required this.onSet, required this.onClear});
+
+  final DateTime? alarmAt;
+  final VoidCallback onSet;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    if (alarmAt == null) {
+      return SizedBox(
+        height: 48,
+        child: OutlinedButton.icon(
+          onPressed: onSet,
+          icon: const Icon(Icons.alarm_add_rounded, size: 18),
+          label: const Text('Set wake alarm'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: LullabyColors.onSurface,
+            side: const BorderSide(color: LullabyColors.outlineVariant),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: LullabyDecorations.glassCard(borderRadius: 14),
+      child: Row(
+        children: [
+          const Icon(Icons.alarm_on_rounded, color: LullabyColors.primary, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Wake alarm set for ${_formatClock(alarmAt!)}',
+              style: const TextStyle(color: LullabyColors.onSurface, fontWeight: FontWeight.w600, fontSize: 14),
+            ),
+          ),
+          TextButton(
+            onPressed: onClear,
+            child: const Text('Clear', style: TextStyle(color: LullabyColors.error)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Quick-pick sheet for a nap "wake me in N minutes" alarm.
+class _NapDurationSheet extends StatelessWidget {
+  const _NapDurationSheet();
+
+  static const _options = [10, 15, 20, 30, 45, 60];
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Wake me in', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: LullabyColors.onSurface)),
+            const SizedBox(height: 4),
+            const Text('Pick how long this nap should last', style: TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 13)),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: _options.map((m) {
+                return ActionChip(
+                  label: Text('$m min'),
+                  backgroundColor: LullabyColors.surfaceContainerHigh,
+                  labelStyle: const TextStyle(color: LullabyColors.onSurface, fontWeight: FontWeight.w600),
+                  side: const BorderSide(color: LullabyColors.outlineVariant),
+                  onPressed: () => Navigator.of(context).pop(m),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 enum _ReflectStep { quality, factors, tips }
 
 class _QualitySheet extends ConsumerStatefulWidget {
@@ -236,6 +385,24 @@ class _QualitySheetState extends ConsumerState<_QualitySheet> {
   final Set<SleepFactor> _factors = {};
   bool _saving = false;
   String? _error;
+  QualityRating? _appRating;
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-fill the rating from the app's objective score for this session.
+    final timer = ref.read(sleepTimerProvider);
+    final profile = ref.read(profileProvider).valueOrNull;
+    final recommendation = profile == null
+        ? null
+        : recommendationForBirthDate(profile.dateOfBirth);
+    _appRating = rateSleepQuality(
+      type: timer.type,
+      duration: timer.elapsed,
+      recommendation: recommendation,
+    );
+    _quality = _appRating!.score.toDouble();
+  }
 
   bool get _isPoor => _quality.round() < kGoodQualityThreshold;
 
@@ -359,6 +526,19 @@ class _QualitySheetState extends ConsumerState<_QualitySheet> {
           label: '${_quality.round()}',
           onChanged: _saving ? null : (v) => setState(() => _quality = v),
         ),
+        if (_appRating != null)
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome_rounded, size: 14, color: LullabyColors.onSurfaceVariant),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'App rated ${_appRating!.score} · ${_appRating!.criteria.first.detail.toLowerCase()} — adjust if needed',
+                  style: const TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }
