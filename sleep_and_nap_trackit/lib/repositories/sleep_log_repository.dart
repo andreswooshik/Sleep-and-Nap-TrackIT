@@ -19,6 +19,11 @@ class SleepLogRepository extends AsyncNotifier<List<SleepLog>> {
   /// Subscribes to the live table feed. The first emission resolves the
   /// initial load; every later emission (from a remote insert/update/delete)
   /// updates [state] so the UI reflects database changes instantly.
+  ///
+  /// Realtime is an enhancement, not the source of truth: once the initial load
+  /// has succeeded, a later channel error (e.g. an expired JWT on an idle tab)
+  /// is swallowed so it can never blow away already-loaded data. Local
+  /// add/edit/delete keep the list correct regardless of the live channel.
   @override
   Future<List<SleepLog>> build() {
     final completer = Completer<List<SleepLog>>();
@@ -32,9 +37,9 @@ class SleepLogRepository extends AsyncNotifier<List<SleepLog>> {
         }
       },
       onError: (Object error, StackTrace stackTrace) {
-        if (completer.isCompleted) {
-          state = AsyncValue.error(error, stackTrace);
-        } else {
+        // Only fail if we never managed an initial load; otherwise keep the
+        // last good data and let live updates resume on reconnect.
+        if (!completer.isCompleted) {
           completer.completeError(error, stackTrace);
         }
       },
