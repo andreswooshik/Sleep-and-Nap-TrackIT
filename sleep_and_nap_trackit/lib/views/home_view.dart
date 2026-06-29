@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/reminder_schedule.dart';
 import '../core/sleep_recommendation.dart';
 import '../core/theme.dart';
 import '../models/sleep_log.dart';
 import '../viewmodels/dashboard_viewmodel.dart';
+import '../viewmodels/reminder_settings_viewmodel.dart';
 import '../providers/home_provider.dart';
+import '../providers/profile_provider.dart';
 import '../providers/sleep_timer_provider.dart';
 import 'manual_log_view.dart';
 import 'timer_view.dart';
@@ -70,6 +73,10 @@ class _HomeContent extends StatelessWidget {
         const SliverPadding(
           padding: EdgeInsets.fromLTRB(20, 8, 20, 8),
           sliver: SliverToBoxAdapter(child: _AddPastLogButton()),
+        ),
+        const SliverPadding(
+          padding: EdgeInsets.fromLTRB(20, 6, 20, 0),
+          sliver: SliverToBoxAdapter(child: _AlarmCard()),
         ),
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
@@ -327,6 +334,84 @@ class _AddPastLogButton extends StatelessWidget {
   }
 }
 
+/// Dashboard wake-up alarm: shows the daily alarm time with an on/off toggle
+/// and a tap-to-edit time. Backed by the profile + [ReminderSettingsController]
+/// so it stays in sync with the Settings screen.
+class _AlarmCard extends ConsumerWidget {
+  const _AlarmCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(profileProvider).valueOrNull;
+    if (profile == null) return const SizedBox.shrink();
+
+    final controller = ref.read(reminderSettingsControllerProvider);
+    final enabled = profile.notificationsEnabled;
+    final wake = ClockTime.tryParse(profile.usualWakeUpTime) ?? const ClockTime(7, 0);
+
+    Future<void> editTime() async {
+      final picked = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay(hour: wake.hour, minute: wake.minute),
+        helpText: 'Set wake-up alarm',
+      );
+      if (picked != null) {
+        await controller.setWakeTime(profile, ClockTime(picked.hour, picked.minute));
+      }
+    }
+
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Container(
+            height: 44,
+            width: 44,
+            decoration: BoxDecoration(
+              color: LullabyColors.secondary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.alarm_rounded, color: LullabyColors.secondary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Wake-up alarm', style: TextStyle(color: LullabyColors.onSurface, fontWeight: FontWeight.w700, fontSize: 15)),
+                const SizedBox(height: 2),
+                GestureDetector(
+                  onTap: enabled ? editTime : null,
+                  child: Text(
+                    enabled ? '${_formatClock12(wake)} · tap to change' : 'Off',
+                    style: TextStyle(
+                      color: enabled ? LullabyColors.primary : LullabyColors.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch.adaptive(
+            value: enabled,
+            activeTrackColor: LullabyColors.primaryContainer,
+            onChanged: (v) => controller.setEnabled(profile, v),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatClock12(ClockTime t) {
+  final hour = t.hour % 12 == 0 ? 12 : t.hour % 12;
+  final minute = t.minute.toString().padLeft(2, '0');
+  final period = t.hour < 12 ? 'AM' : 'PM';
+  return '$hour:$minute $period';
+}
+
 /// "Today" tracking-status card: today's logged sleep & naps versus the user's
 /// age-based recommended range.
 class _TodayStatusCard extends ConsumerWidget {
@@ -382,13 +467,28 @@ class _TodayStatusCard extends ConsumerWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _TodayMetric(value: sleepLabel, label: 'Sleep'),
-              const SizedBox(width: 24),
-              _TodayMetric(value: '${status.napsToday}', label: status.napsToday == 1 ? 'Nap' : 'Naps'),
+              Expanded(
+                child: _DayColumn(
+                  title: 'Today',
+                  sleep: sleepLabel,
+                  naps: status.napsToday,
+                  highlight: true,
+                ),
+              ),
+              Container(width: 1, height: 52, color: LullabyColors.outlineVariant),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _DayColumn(
+                  title: 'Yesterday',
+                  sleep: status.hasLoggedYesterday ? _formatHm(status.sleepLoggedYesterday) : '--',
+                  naps: status.napsYesterday,
+                  highlight: false,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -409,20 +509,32 @@ class _TodayStatusCard extends ConsumerWidget {
   }
 }
 
-class _TodayMetric extends StatelessWidget {
-  const _TodayMetric({required this.value, required this.label});
+/// A day's sleep + nap totals for the Today/Yesterday comparison.
+class _DayColumn extends StatelessWidget {
+  const _DayColumn({
+    required this.title,
+    required this.sleep,
+    required this.naps,
+    required this.highlight,
+  });
 
-  final String value;
-  final String label;
+  final String title;
+  final String sleep;
+  final int naps;
+  final bool highlight;
 
   @override
   Widget build(BuildContext context) {
+    final valueColor = highlight ? LullabyColors.primary : LullabyColors.onSurface;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(value, style: const TextStyle(color: LullabyColors.primary, fontWeight: FontWeight.w900, fontSize: 24)),
-        Text(label, style: const TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 12)),
+        Text(title.toUpperCase(), style: const TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 11, letterSpacing: 0.5, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        Text(sleep, style: TextStyle(color: valueColor, fontWeight: FontWeight.w900, fontSize: 22)),
+        const SizedBox(height: 2),
+        Text('$naps ${naps == 1 ? 'nap' : 'naps'}', style: const TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 12)),
       ],
     );
   }

@@ -43,6 +43,20 @@ class FakeReminderService implements ReminderService {
 
   @override
   Future<void> cancelAlarm() async => alarmCancels++;
+
+  ({DateTime at, String label})? scheduledSessionAlarm;
+  int sessionAlarmCancels = 0;
+
+  @override
+  Future<void> scheduleSessionAlarm({
+    required DateTime at,
+    required String label,
+  }) async {
+    scheduledSessionAlarm = (at: at, label: label);
+  }
+
+  @override
+  Future<void> cancelSessionAlarm() async => sessionAlarmCancels++;
 }
 
 Profile buildProfile({bool notificationsEnabled = true}) => Profile(

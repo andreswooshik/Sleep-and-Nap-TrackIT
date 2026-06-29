@@ -32,6 +32,16 @@ abstract class ReminderService {
 
   /// Cancels the alarm, if any.
   Future<void> cancelAlarm();
+
+  /// Schedules a one-shot alarm for a specific [at] time (used for a per-session
+  /// "wake me" alarm set from the timer). Replaces any pending session alarm.
+  Future<void> scheduleSessionAlarm({
+    required DateTime at,
+    required String label,
+  });
+
+  /// Cancels the per-session alarm, if any.
+  Future<void> cancelSessionAlarm();
 }
 
 /// Stable notification ids so each schedule replaces its predecessor rather
@@ -39,6 +49,7 @@ abstract class ReminderService {
 class _NotificationIds {
   static const reminder = 1001;
   static const alarm = 1002;
+  static const sessionAlarm = 1003;
 }
 
 /// Concrete [ReminderService] backed by `flutter_local_notifications`.
@@ -150,6 +161,32 @@ class LocalNotificationReminderService implements ReminderService {
     await _plugin.cancel(_NotificationIds.alarm);
   }
 
+  @override
+  Future<void> scheduleSessionAlarm({
+    required DateTime at,
+    required String label,
+  }) async {
+    if (kIsWeb) return;
+    await init();
+    await _plugin.zonedSchedule(
+      _NotificationIds.sessionAlarm,
+      label,
+      'Your session alarm',
+      tz.TZDateTime.from(at, tz.local),
+      const NotificationDetails(android: _alarmChannel),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      // One-shot: no matchDateTimeComponents so it does not repeat.
+    );
+  }
+
+  @override
+  Future<void> cancelSessionAlarm() async {
+    if (kIsWeb) return;
+    await _plugin.cancel(_NotificationIds.sessionAlarm);
+  }
+
   Future<void> _scheduleDaily({
     required int id,
     required int hour,
@@ -205,4 +242,13 @@ class NoopReminderService implements ReminderService {
 
   @override
   Future<void> cancelAlarm() async {}
+
+  @override
+  Future<void> scheduleSessionAlarm({
+    required DateTime at,
+    required String label,
+  }) async {}
+
+  @override
+  Future<void> cancelSessionAlarm() async {}
 }

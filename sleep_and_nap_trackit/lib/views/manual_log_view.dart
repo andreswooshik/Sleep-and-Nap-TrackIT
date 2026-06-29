@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/sleep_quality.dart';
 import '../core/theme.dart';
 import '../models/sleep_log.dart';
 import '../providers/home_provider.dart';
@@ -21,6 +22,7 @@ class _ManualLogViewState extends ConsumerState<ManualLogView> {
   late DateTime _start;
   late DateTime _end;
   double _quality = 80;
+  bool _qualityTouched = false;
   bool _saving = false;
   String? _error;
 
@@ -31,11 +33,22 @@ class _ManualLogViewState extends ConsumerState<ManualLogView> {
     // Sensible default: an 8-hour window ending now.
     _end = DateTime(now.year, now.month, now.day, now.hour, now.minute);
     _start = _end.subtract(const Duration(hours: 8));
+    _applySuggestedQuality();
   }
 
   bool get _rangeValid => _end.isAfter(_start);
 
   Duration get _duration => _end.difference(_start);
+
+  /// The app's computed rating for the current type/duration.
+  QualityRating get _rating =>
+      rateSleepQuality(type: _type, duration: _duration);
+
+  /// Pre-fills the quality from the app's rating until the user adjusts it.
+  void _applySuggestedQuality() {
+    if (_qualityTouched || !_rangeValid) return;
+    _quality = _rating.score.toDouble();
+  }
 
   Future<DateTime?> _pickDateTime(DateTime initial) async {
     final date = await showDatePicker(
@@ -59,6 +72,7 @@ class _ManualLogViewState extends ConsumerState<ManualLogView> {
       setState(() {
         _start = picked;
         _error = null;
+        _applySuggestedQuality();
       });
     }
   }
@@ -69,6 +83,7 @@ class _ManualLogViewState extends ConsumerState<ManualLogView> {
       setState(() {
         _end = picked;
         _error = null;
+        _applySuggestedQuality();
       });
     }
   }
@@ -130,7 +145,12 @@ class _ManualLogViewState extends ConsumerState<ManualLogView> {
                 const SizedBox(height: 10),
                 _TypeToggle(
                   value: _type,
-                  onChanged: _saving ? null : (t) => setState(() => _type = t),
+                  onChanged: _saving
+                      ? null
+                      : (t) => setState(() {
+                            _type = t;
+                            _applySuggestedQuality();
+                          }),
                 ),
                 const SizedBox(height: 22),
                 Text('When', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: LullabyColors.primary)),
@@ -165,7 +185,10 @@ class _ManualLogViewState extends ConsumerState<ManualLogView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('How was it?', style: TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 13)),
+                    Text(
+                      labelForScore(_quality.round()),
+                      style: const TextStyle(color: LullabyColors.onSurface, fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
                     Text(
                       '${_quality.round()}',
                       style: const TextStyle(color: LullabyColors.primary, fontWeight: FontWeight.w800, fontSize: 16),
@@ -178,8 +201,28 @@ class _ManualLogViewState extends ConsumerState<ManualLogView> {
                   max: 100,
                   divisions: 100,
                   label: '${_quality.round()}',
-                  onChanged: _saving ? null : (v) => setState(() => _quality = v),
+                  onChanged: _saving
+                      ? null
+                      : (v) => setState(() {
+                            _quality = v;
+                            _qualityTouched = true;
+                          }),
                 ),
+                if (_rangeValid)
+                  Row(
+                    children: [
+                      const Icon(Icons.auto_awesome_rounded, size: 14, color: LullabyColors.onSurfaceVariant),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _qualityTouched
+                              ? 'App rated this ${_rating.score} (${_rating.criteria.first.detail.toLowerCase()})'
+                              : 'App-rated from ${_rating.criteria.first.detail.toLowerCase()} — adjust if needed',
+                          style: const TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
                 if (_error != null) ...[
                   const SizedBox(height: 8),
                   Text(_error!, style: const TextStyle(color: LullabyColors.error, fontSize: 13)),

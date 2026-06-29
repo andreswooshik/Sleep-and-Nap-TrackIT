@@ -15,6 +15,12 @@ DateTime nextDailyOccurrence(int hour, int minute, DateTime from) {
   return candidate;
 }
 
+/// Resolves a per-session wake alarm for [hour]:[minute] relative to [from]:
+/// the next occurrence of that clock time, strictly after [from]. Identical to
+/// [nextDailyOccurrence] but named for the session-alarm use case.
+DateTime sessionAlarmAt(int hour, int minute, DateTime from) =>
+    nextDailyOccurrence(hour, minute, from);
+
 /// An hour/minute pair, parsed from the `"HH:mm[:ss]"` strings the profile
 /// stores for bedtime and wake-up time.
 class ClockTime {

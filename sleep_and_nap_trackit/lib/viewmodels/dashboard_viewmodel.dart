@@ -56,16 +56,21 @@ class TodayStatus {
   const TodayStatus({
     required this.sleepLoggedToday,
     required this.napsToday,
+    required this.sleepLoggedYesterday,
+    required this.napsYesterday,
     required this.recommendation,
   });
 
   final Duration sleepLoggedToday;
   final int napsToday;
+  final Duration sleepLoggedYesterday;
+  final int napsYesterday;
 
   /// Null when no profile (or date of birth) is available yet.
   final SleepRecommendation? recommendation;
 
   bool get hasLoggedSleep => sleepLoggedToday > Duration.zero;
+  bool get hasLoggedYesterday => sleepLoggedYesterday > Duration.zero;
 
   factory TodayStatus.fromLogs(
     List<SleepLog> logs, {
@@ -73,17 +78,25 @@ class TodayStatus {
     DateTime? now,
   }) {
     final today = now ?? DateTime.now();
-    bool isToday(DateTime d) =>
-        d.year == today.year && d.month == today.month && d.day == today.day;
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final yesterdayDate = todayDate.subtract(const Duration(days: 1));
 
-    final todays = logs.where((l) => isToday(l.startedAt));
-    final sleepMinutes = todays
-        .where((l) => l.type == SleepLogType.sleep)
-        .fold<int>(0, (sum, l) => sum + l.duration.inMinutes);
+    bool onDay(DateTime d, DateTime day) =>
+        d.year == day.year && d.month == day.month && d.day == day.day;
+
+    Duration sleepOn(DateTime day) => Duration(
+          minutes: logs
+              .where((l) => l.type == SleepLogType.sleep && onDay(l.startedAt, day))
+              .fold<int>(0, (sum, l) => sum + l.duration.inMinutes),
+        );
+    int napsOn(DateTime day) =>
+        logs.where((l) => l.type == SleepLogType.nap && onDay(l.startedAt, day)).length;
 
     return TodayStatus(
-      sleepLoggedToday: Duration(minutes: sleepMinutes),
-      napsToday: todays.where((l) => l.type == SleepLogType.nap).length,
+      sleepLoggedToday: sleepOn(todayDate),
+      napsToday: napsOn(todayDate),
+      sleepLoggedYesterday: sleepOn(yesterdayDate),
+      napsYesterday: napsOn(yesterdayDate),
       recommendation: recommendation,
     );
   }
