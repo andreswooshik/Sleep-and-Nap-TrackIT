@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/sleep_log.dart';
@@ -16,31 +14,28 @@ import '../services/sleep_service.dart';
 class SleepLogRepository extends AsyncNotifier<List<SleepLog>> {
   SleepService get _service => ref.read(sleepServiceProvider);
 
-  /// Subscribes to the live table feed. The first emission resolves the
-  /// initial load; every later emission (from a remote insert/update/delete)
-  /// updates [state] so the UI reflects database changes instantly.
+  /// Loads the user's logs, then keeps them live.
+  ///
+  /// The initial list comes from a plain REST fetch ([SleepService.getSleepLogs]),
+  /// which refreshes the auth token reliably — so the dashboard shows the user's
+  /// data even when the realtime channel can't authenticate (e.g. an expired
+  /// JWT on an idle tab). The realtime subscription is attached afterwards for
+  /// live updates only, and its errors are swallowed so a flaky channel can
+  /// never blank out or crash the already-loaded list. Local add/edit/delete
+  /// keep the list correct regardless.
   @override
-  Future<List<SleepLog>> build() {
-    final completer = Completer<List<SleepLog>>();
+  Future<List<SleepLog>> build() async {
+    final initial = await _service.getSleepLogs();
+
     final sub = _service.watchSleepLogs().listen(
-      (logs) {
-        final sorted = _sorted(logs);
-        if (completer.isCompleted) {
-          state = AsyncValue.data(sorted);
-        } else {
-          completer.complete(sorted);
-        }
-      },
-      onError: (Object error, StackTrace stackTrace) {
-        if (completer.isCompleted) {
-          state = AsyncValue.error(error, stackTrace);
-        } else {
-          completer.completeError(error, stackTrace);
-        }
+      (logs) => state = AsyncValue.data(_sorted(logs)),
+      onError: (Object _, StackTrace _) {
+        // Keep the last good data; live updates resume on reconnect.
       },
     );
     ref.onDispose(sub.cancel);
-    return completer.future;
+
+    return _sorted(initial);
   }
 
   /// Reloads the full list from the remote table.

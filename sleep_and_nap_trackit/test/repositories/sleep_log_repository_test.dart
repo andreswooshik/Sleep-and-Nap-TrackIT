@@ -107,6 +107,9 @@ void main() {
       container.listen(sleepLogsProvider, (_, _) {});
 
       final initial = await container.read(sleepLogsProvider.future);
+      // Let the realtime subscription attach after the initial REST load
+      // (it goes live just after the fetch resolves).
+      await _tick();
 
       // Simulate a change originating from the database (not a repository call).
       await service.deleteSleepLog(initial.first.id!);

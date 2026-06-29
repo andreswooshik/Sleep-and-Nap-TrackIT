@@ -180,9 +180,12 @@ class _SleepBarChart extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 22,
+              interval: 1,
               getTitlesWidget: (value, _) {
-                final i = value.toInt();
-                if (i < 0 || i >= days.length) return const SizedBox.shrink();
+                final i = value.round();
+                if (i < 0 || i >= days.length || value != i.toDouble()) {
+                  return const SizedBox.shrink();
+                }
                 return Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(days[i].weekdayLabel, style: const TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 11)),
@@ -238,6 +241,8 @@ class _QualityLineChart extends StatelessWidget {
       LineChartData(
         minY: 0,
         maxY: 100,
+        minX: 0,
+        maxX: (trend.length - 1).toDouble(),
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
             getTooltipColor: (_) => LullabyColors.surfaceContainerHigh,
@@ -274,9 +279,12 @@ class _QualityLineChart extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 22,
+              interval: 1,
               getTitlesWidget: (value, _) {
-                final i = value.toInt();
-                if (i < 0 || i >= trend.length) return const SizedBox.shrink();
+                final i = value.round();
+                if (i < 0 || i >= trend.length || value != i.toDouble()) {
+                  return const SizedBox.shrink();
+                }
                 return Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(trend[i].weekdayLabel, style: const TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 11)),
