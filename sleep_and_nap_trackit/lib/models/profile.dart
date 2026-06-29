@@ -35,6 +35,8 @@ class Profile {
   }
 
   Profile copyWith({
+    String? usualBedtime,
+    String? usualWakeUpTime,
     String? gender,
     int? sleepGoalHours,
     String? napHabit,
@@ -46,8 +48,8 @@ class Profile {
       lastName: lastName,
       middleInitial: middleInitial,
       dateOfBirth: dateOfBirth,
-      usualBedtime: usualBedtime,
-      usualWakeUpTime: usualWakeUpTime,
+      usualBedtime: usualBedtime ?? this.usualBedtime,
+      usualWakeUpTime: usualWakeUpTime ?? this.usualWakeUpTime,
       gender: gender ?? this.gender,
       sleepGoalHours: sleepGoalHours ?? this.sleepGoalHours,
       napHabit: napHabit ?? this.napHabit,

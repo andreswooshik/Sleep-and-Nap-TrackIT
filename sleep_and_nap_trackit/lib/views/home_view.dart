@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/sleep_recommendation.dart';
 import '../core/theme.dart';
 import '../models/sleep_log.dart';
 import '../viewmodels/dashboard_viewmodel.dart';
 import '../providers/home_provider.dart';
 import '../providers/sleep_timer_provider.dart';
+import 'manual_log_view.dart';
 import 'timer_view.dart';
 
 class HomeView extends ConsumerWidget {
@@ -55,11 +57,19 @@ class _HomeContent extends StatelessWidget {
         ),
         const SliverPadding(
           padding: EdgeInsets.fromLTRB(20, 18, 20, 0),
+          sliver: SliverToBoxAdapter(child: _TodayStatusCard()),
+        ),
+        const SliverPadding(
+          padding: EdgeInsets.fromLTRB(20, 18, 20, 0),
           sliver: SliverToBoxAdapter(child: _ActiveSessionBanner()),
         ),
         const SliverPadding(
-          padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
+          padding: EdgeInsets.fromLTRB(20, 18, 20, 0),
           sliver: SliverToBoxAdapter(child: _QuickActions()),
+        ),
+        const SliverPadding(
+          padding: EdgeInsets.fromLTRB(20, 8, 20, 8),
+          sliver: SliverToBoxAdapter(child: _AddPastLogButton()),
         ),
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
@@ -297,6 +307,133 @@ class _BannerElapsed extends ConsumerWidget {
       style: const TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 13, fontFeatures: [FontFeature.tabularFigures()]),
     );
   }
+}
+
+class _AddPastLogButton extends StatelessWidget {
+  const _AddPastLogButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const ManualLogView()),
+        ),
+        icon: const Icon(Icons.edit_calendar_rounded, size: 18, color: LullabyColors.primary),
+        label: const Text('Add a past log', style: TextStyle(color: LullabyColors.primary, fontWeight: FontWeight.w600)),
+      ),
+    );
+  }
+}
+
+/// "Today" tracking-status card: today's logged sleep & naps versus the user's
+/// age-based recommended range.
+class _TodayStatusCard extends ConsumerWidget {
+  const _TodayStatusCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final statusAsync = ref.watch(todayStatusProvider);
+    final status = statusAsync.valueOrNull;
+    if (status == null) return const SizedBox.shrink();
+
+    final rec = status.recommendation;
+    final sleep = status.sleepLoggedToday;
+    final sleepLabel = _formatHm(sleep);
+
+    final String headline;
+    final Color accent;
+    if (rec == null) {
+      headline = status.hasLoggedSleep
+          ? '$sleepLabel of sleep logged today'
+          : 'No sleep logged yet today';
+      accent = LullabyColors.primary;
+    } else if (!status.hasLoggedSleep) {
+      headline = 'Aim for ${rec.sleepRangeLabel} of sleep today';
+      accent = LullabyColors.onSurfaceVariant;
+    } else {
+      headline = rec.statusMessage(sleep);
+      switch (rec.comparedTo(sleep)) {
+        case RecommendationStatus.below:
+          accent = LullabyColors.tertiary;
+        case RecommendationStatus.within:
+          accent = LullabyColors.primaryContainer;
+        case RecommendationStatus.above:
+          accent = LullabyColors.secondary;
+      }
+    }
+
+    return GlassCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.today_rounded, color: LullabyColors.primary, size: 20),
+              const SizedBox(width: 8),
+              const Text('Today', style: TextStyle(color: LullabyColors.onSurface, fontWeight: FontWeight.w700, fontSize: 15)),
+              const Spacer(),
+              if (rec != null)
+                Text(
+                  'Goal ${rec.sleepRangeLabel}',
+                  style: const TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _TodayMetric(value: sleepLabel, label: 'Sleep'),
+              const SizedBox(width: 24),
+              _TodayMetric(value: '${status.napsToday}', label: status.napsToday == 1 ? 'Nap' : 'Naps'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            headline,
+            style: TextStyle(color: accent, fontSize: 13, fontWeight: FontWeight.w600, height: 1.3),
+          ),
+          if (rec != null && rec.recommendedNapMinutes > 0) ...[
+            const SizedBox(height: 6),
+            Text(
+              rec.napAdvice,
+              style: const TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 12, height: 1.3),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TodayMetric extends StatelessWidget {
+  const _TodayMetric({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(value, style: const TextStyle(color: LullabyColors.primary, fontWeight: FontWeight.w900, fontSize: 24)),
+        Text(label, style: const TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 12)),
+      ],
+    );
+  }
+}
+
+String _formatHm(Duration d) {
+  final h = d.inHours;
+  final m = d.inMinutes.remainder(60);
+  if (h == 0) return '${m}m';
+  if (m == 0) return '${h}h';
+  return '${h}h ${m}m';
 }
 
 class _RecentLogs extends StatelessWidget {

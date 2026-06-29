@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme.dart';
+import '../models/profile.dart';
+import '../providers/profile_provider.dart';
+import '../viewmodels/reminder_settings_viewmodel.dart';
 import 'home_view.dart';
 import 'settings_view.dart';
 import 'trends_view.dart';
@@ -17,11 +20,32 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   int _index = 0;
+  bool _remindersSynced = false;
 
   static const _tabs = [HomeView(), TrendsView(), SettingsView()];
 
+  void _syncReminders(Profile? profile) {
+    if (profile != null && !_remindersSynced) {
+      _remindersSynced = true;
+      ref.read(reminderSettingsControllerProvider).sync(profile);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Handle the case where the profile is already cached when we mount.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncReminders(ref.read(profileProvider).valueOrNull);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Re-apply the user's reminder/alarm schedule once the profile is loaded,
+    // so notifications survive app restarts and device reboots.
+    ref.listen(profileProvider, (_, next) => _syncReminders(next.valueOrNull));
+
     return Scaffold(
       body: IndexedStack(index: _index, children: _tabs),
       bottomNavigationBar: NavigationBar(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/sleep_log.dart';
@@ -14,8 +16,32 @@ import '../services/sleep_service.dart';
 class SleepLogRepository extends AsyncNotifier<List<SleepLog>> {
   SleepService get _service => ref.read(sleepServiceProvider);
 
+  /// Subscribes to the live table feed. The first emission resolves the
+  /// initial load; every later emission (from a remote insert/update/delete)
+  /// updates [state] so the UI reflects database changes instantly.
   @override
-  Future<List<SleepLog>> build() => _service.getSleepLogs();
+  Future<List<SleepLog>> build() {
+    final completer = Completer<List<SleepLog>>();
+    final sub = _service.watchSleepLogs().listen(
+      (logs) {
+        final sorted = _sorted(logs);
+        if (completer.isCompleted) {
+          state = AsyncValue.data(sorted);
+        } else {
+          completer.complete(sorted);
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (completer.isCompleted) {
+          state = AsyncValue.error(error, stackTrace);
+        } else {
+          completer.completeError(error, stackTrace);
+        }
+      },
+    );
+    ref.onDispose(sub.cancel);
+    return completer.future;
+  }
 
   /// Reloads the full list from the remote table.
   Future<void> refresh() async {
@@ -23,22 +49,15 @@ class SleepLogRepository extends AsyncNotifier<List<SleepLog>> {
     state = await AsyncValue.guard(_service.getSleepLogs);
   }
 
-  /// Persists [log] to the cloud, then inserts the stored row (with its
-  /// server-assigned id) into the local list in chronological order.
+  /// Persists [log] to the cloud. The realtime stream re-emits with the stored
+  /// row (including its server-assigned id), updating [state] automatically.
   Future<void> add(SleepLog log) async {
-    final created = await _service.addSleepLog(log);
-    final current = state.valueOrNull ?? const [];
-    state = AsyncValue.data(_sorted([created, ...current]));
+    await _service.addSleepLog(log);
   }
 
-  /// Saves edits to [log] remotely and swaps the matching local entry in place.
+  /// Saves edits to [log] remotely; the realtime stream reflects the change.
   Future<void> edit(SleepLog log) async {
-    final saved = await _service.updateSleepLog(log);
-    final current = state.valueOrNull ?? const [];
-    state = AsyncValue.data(_sorted([
-      for (final entry in current)
-        if (entry.id == saved.id) saved else entry,
-    ]));
+    await _service.updateSleepLog(log);
   }
 
   /// Removes the log with [id] from the local list immediately, then deletes it
