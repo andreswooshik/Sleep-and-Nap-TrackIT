@@ -67,6 +67,39 @@ void main() {
       expect(stats.topFactors[1].key, 'noise');
     });
 
+    test('weekly average is total sleep over days that have sleep', () {
+      final stats = TrendsStats.fromLogs([
+        sleep(dayOffset: 0, hours: 8),
+        sleep(dayOffset: 1, hours: 6),
+      ], now: now);
+      // 14h across 2 days with sleep -> 7h average.
+      expect(stats.weeklyAverageSleep, const Duration(hours: 7));
+    });
+
+    test('weekly average ignores sleep older than 7 days; monthly includes it', () {
+      final stats = TrendsStats.fromLogs([
+        sleep(dayOffset: 0, hours: 8),
+        sleep(dayOffset: 20, hours: 6), // outside 7-day window, inside 30-day
+      ], now: now);
+      expect(stats.weeklyAverageSleep, const Duration(hours: 8));
+      expect(stats.monthlyAverageSleep, const Duration(hours: 7));
+    });
+
+    test('averages with no sleep in the window are zero', () {
+      final stats = TrendsStats.fromLogs([], now: now);
+      expect(stats.weeklyAverageSleep, Duration.zero);
+      expect(stats.monthlyAverageSleep, Duration.zero);
+    });
+
+    test('quality trend has 7 buckets with null on days without logs', () {
+      final stats = TrendsStats.fromLogs([
+        sleep(dayOffset: 0, hours: 8, quality: 90),
+      ], now: now);
+      expect(stats.qualityTrend.length, 7);
+      expect(stats.qualityTrend.last.quality, 90); // today
+      expect(stats.qualityTrend.first.quality, isNull); // 6 days ago
+    });
+
     test('counts naps separately', () {
       final nap = SleepLog(
         type: SleepLogType.nap,

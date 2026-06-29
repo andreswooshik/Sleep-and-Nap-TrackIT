@@ -27,13 +27,31 @@ class FactorCount {
   final int count;
 }
 
+/// One day's average sleep-quality score, used by the quality trend line.
+class DailyQuality {
+  const DailyQuality({required this.date, required this.quality});
+
+  final DateTime date;
+
+  /// Average quality (0–100) of that day's sessions, or null when none.
+  final int? quality;
+
+  String get weekdayLabel {
+    const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    return labels[date.weekday - 1];
+  }
+}
+
 /// Aggregated, presentation-ready trends derived from a user's sleep logs.
 /// Pure value object — no Flutter or I/O dependencies, fully unit-testable.
 class TrendsStats {
   const TrendsStats({
     required this.last7Days,
     required this.averageSleep,
+    required this.weeklyAverageSleep,
+    required this.monthlyAverageSleep,
     required this.averageQuality,
+    required this.qualityTrend,
     required this.consistency,
     required this.napCount,
     required this.totalSessions,
@@ -42,7 +60,15 @@ class TrendsStats {
 
   final List<DailySleep> last7Days;
   final Duration averageSleep;
+
+  /// Average nightly sleep over the last 7 / 30 days (per day that has sleep).
+  final Duration weeklyAverageSleep;
+  final Duration monthlyAverageSleep;
+
   final int averageQuality;
+
+  /// Per-day average quality for the last 7 days (oldest → newest).
+  final List<DailyQuality> qualityTrend;
 
   /// Percentage of the last 7 days that have at least one sleep session.
   final int consistency;
@@ -77,9 +103,41 @@ class TrendsStats {
             minutes: sleeps.fold<int>(0, (s, l) => s + l.duration.inMinutes) ~/ sleeps.length,
           );
 
+    // Average nightly sleep over a trailing window: total sleep in the window
+    // divided by the number of distinct days that have any sleep.
+    Duration windowAverage(int windowDays) {
+      final cutoff = todayDate.subtract(Duration(days: windowDays - 1));
+      final inWindow = sleeps.where((l) {
+        final d = DateTime(l.startedAt.year, l.startedAt.month, l.startedAt.day);
+        return !d.isBefore(cutoff) && !d.isAfter(todayDate);
+      });
+      if (inWindow.isEmpty) return Duration.zero;
+      final daysWith = inWindow
+          .map((l) => DateTime(l.startedAt.year, l.startedAt.month, l.startedAt.day))
+          .toSet()
+          .length;
+      final totalMinutes =
+          inWindow.fold<int>(0, (s, l) => s + l.duration.inMinutes);
+      return Duration(minutes: totalMinutes ~/ daysWith);
+    }
+
     final avgQuality = logs.isEmpty
         ? 0
         : (logs.fold<int>(0, (s, l) => s + l.quality) / logs.length).round();
+
+    // Per-day average quality across the last 7 days (oldest -> newest).
+    final qualityTrend = <DailyQuality>[];
+    for (var i = 6; i >= 0; i--) {
+      final date = todayDate.subtract(Duration(days: i));
+      final dayLogs = logs.where((l) {
+        final s = l.startedAt;
+        return s.year == date.year && s.month == date.month && s.day == date.day;
+      }).toList();
+      final q = dayLogs.isEmpty
+          ? null
+          : (dayLogs.fold<int>(0, (s, l) => s + l.quality) / dayLogs.length).round();
+      qualityTrend.add(DailyQuality(date: date, quality: q));
+    }
 
     // Factor frequency across all logs.
     final factorTally = <String, int>{};
@@ -96,7 +154,10 @@ class TrendsStats {
     return TrendsStats(
       last7Days: days,
       averageSleep: avgSleep,
+      weeklyAverageSleep: windowAverage(7),
+      monthlyAverageSleep: windowAverage(30),
       averageQuality: avgQuality,
+      qualityTrend: qualityTrend,
       consistency: ((daysWithSleep / 7) * 100).round(),
       napCount: logs.where((l) => l.type == SleepLogType.nap).length,
       totalSessions: logs.length,

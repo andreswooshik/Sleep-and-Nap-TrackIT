@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -54,8 +55,31 @@ class _TrendsContent extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Sleep duration', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text('Hours slept each of the last 7 days', style: theme.textTheme.bodySmall),
                 const SizedBox(height: 16),
-                SizedBox(height: 160, child: _BarChart(days: stats.last7Days)),
+                SizedBox(height: 170, child: _SleepBarChart(days: stats.last7Days)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(child: _StatCard(label: 'Weekly avg', value: _formatDuration(stats.weeklyAverageSleep), color: LullabyColors.primary)),
+              const SizedBox(width: 10),
+              Expanded(child: _StatCard(label: 'Monthly avg', value: _formatDuration(stats.monthlyAverageSleep), color: LullabyColors.secondary)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Sleep quality', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text('Average quality score over the last 7 days', style: theme.textTheme.bodySmall),
+                const SizedBox(height: 16),
+                SizedBox(height: 160, child: _QualityLineChart(trend: stats.qualityTrend)),
               ],
             ),
           ),
@@ -105,52 +129,177 @@ class _TrendsContent extends StatelessWidget {
   }
 }
 
-class _BarChart extends StatelessWidget {
-  const _BarChart({required this.days});
+/// 7-day sleep-duration bars rendered with fl_chart.
+class _SleepBarChart extends StatelessWidget {
+  const _SleepBarChart({required this.days});
 
   final List<DailySleep> days;
 
   @override
   Widget build(BuildContext context) {
     final maxHours = days.fold<double>(0, (m, d) => d.hours > m ? d.hours : m);
-    final scaleMax = maxHours < 8 ? 8.0 : maxHours.ceilToDouble();
+    final maxY = (maxHours < 8 ? 8.0 : maxHours.ceilToDouble()) + 1;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: days.map((day) {
-        final fraction = scaleMax == 0 ? 0.0 : (day.hours / scaleMax).clamp(0.0, 1.0);
-        return Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                day.hours == 0 ? '' : day.hours.toStringAsFixed(1),
+    return BarChart(
+      BarChartData(
+        maxY: maxY,
+        minY: 0,
+        alignment: BarChartAlignment.spaceAround,
+        barTouchData: BarTouchData(
+          enabled: true,
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipColor: (_) => LullabyColors.surfaceContainerHigh,
+            getTooltipItem: (group, _, rod, _) => BarTooltipItem(
+              '${rod.toY.toStringAsFixed(1)}h',
+              const TextStyle(color: LullabyColors.onSurface, fontWeight: FontWeight.w700, fontSize: 12),
+            ),
+          ),
+        ),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: 2,
+          getDrawingHorizontalLine: (_) => const FlLine(color: LullabyColors.outlineVariant, strokeWidth: 0.5),
+        ),
+        borderData: FlBorderData(show: false),
+        titlesData: FlTitlesData(
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 28,
+              interval: 2,
+              getTitlesWidget: (value, _) => Text(
+                '${value.toInt()}h',
                 style: const TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 10),
               ),
-              const SizedBox(height: 4),
-              Expanded(
-                child: FractionallySizedBox(
-                  heightFactor: fraction == 0 ? 0.02 : fraction,
-                  alignment: Alignment.bottomCenter,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [LullabyColors.secondaryContainer, LullabyColors.primaryContainer],
-                      ),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
+            ),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 22,
+              getTitlesWidget: (value, _) {
+                final i = value.toInt();
+                if (i < 0 || i >= days.length) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(days[i].weekdayLabel, style: const TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 11)),
+                );
+              },
+            ),
+          ),
+        ),
+        barGroups: [
+          for (var i = 0; i < days.length; i++)
+            BarChartGroupData(
+              x: i,
+              barRods: [
+                BarChartRodData(
+                  toY: days[i].hours,
+                  width: 16,
+                  borderRadius: BorderRadius.circular(6),
+                  gradient: const LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [LullabyColors.secondaryContainer, LullabyColors.primaryContainer],
                   ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(day.weekdayLabel, style: const TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 11)),
-            ],
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 7-day sleep-quality trend line rendered with fl_chart. Days without any
+/// session are skipped so the line connects only real data points.
+class _QualityLineChart extends StatelessWidget {
+  const _QualityLineChart({required this.trend});
+
+  final List<DailyQuality> trend;
+
+  @override
+  Widget build(BuildContext context) {
+    final spots = <FlSpot>[
+      for (var i = 0; i < trend.length; i++)
+        if (trend[i].quality != null) FlSpot(i.toDouble(), trend[i].quality!.toDouble()),
+    ];
+
+    if (spots.isEmpty) {
+      return const Center(
+        child: Text('No quality data yet', style: TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 13)),
+      );
+    }
+
+    return LineChart(
+      LineChartData(
+        minY: 0,
+        maxY: 100,
+        lineTouchData: LineTouchData(
+          touchTooltipData: LineTouchTooltipData(
+            getTooltipColor: (_) => LullabyColors.surfaceContainerHigh,
+            getTooltipItems: (spots) => spots
+                .map((s) => LineTooltipItem(
+                      '${s.y.toInt()}%',
+                      const TextStyle(color: LullabyColors.onSurface, fontWeight: FontWeight.w700, fontSize: 12),
+                    ))
+                .toList(),
           ),
-        );
-      }).toList(),
+        ),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: 25,
+          getDrawingHorizontalLine: (_) => const FlLine(color: LullabyColors.outlineVariant, strokeWidth: 0.5),
+        ),
+        borderData: FlBorderData(show: false),
+        titlesData: FlTitlesData(
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 30,
+              interval: 25,
+              getTitlesWidget: (value, _) => Text(
+                '${value.toInt()}',
+                style: const TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 10),
+              ),
+            ),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 22,
+              getTitlesWidget: (value, _) {
+                final i = value.toInt();
+                if (i < 0 || i >= trend.length) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(trend[i].weekdayLabel, style: const TextStyle(color: LullabyColors.onSurfaceVariant, fontSize: 11)),
+                );
+              },
+            ),
+          ),
+        ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            preventCurveOverShooting: true,
+            color: LullabyColors.primary,
+            barWidth: 3,
+            dotData: const FlDotData(show: true),
+            belowBarData: BarAreaData(
+              show: true,
+              color: LullabyColors.primaryContainer.withValues(alpha: 0.15),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
