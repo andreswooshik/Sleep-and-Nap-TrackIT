@@ -85,7 +85,7 @@ class SupabaseAuthService implements AuthService {
 class MockAuthService implements AuthService {
   bool _authenticated = false;
 
-  static const _validEmail = 'test@example.com';
+  static const _validEmail = 'hello@example.com';
   static const _validPassword = 'password123';
 
   @override

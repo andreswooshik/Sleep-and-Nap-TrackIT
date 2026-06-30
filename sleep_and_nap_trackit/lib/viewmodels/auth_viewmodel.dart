@@ -158,6 +158,9 @@ class AuthViewModel extends ChangeNotifier {
     } else if (!RegExp(r'^[\w.-]+@[\w-]+\.\w{2,}$').hasMatch(_email)) {
       _emailError = 'Enter a valid email';
       valid = false;
+    } else if (_email.split('@').first.length < 5) {
+      _emailError = 'Email username must be at least 5 characters';
+      valid = false;
     }
 
     if (_password.isEmpty) {

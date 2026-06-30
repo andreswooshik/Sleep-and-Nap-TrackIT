@@ -59,7 +59,7 @@ void main() {
     });
 
     testWidgets('too-short password blocks navigation', (tester) async {
-      await submitLogin(tester, email: 'test@example.com', password: 'abc');
+      await submitLogin(tester, email: 'hello@example.com', password: 'abc');
       expect(dashboard, findsNothing);
       expect(find.text('Password must be at least 6 characters'), findsOneWidget);
     });
@@ -74,7 +74,7 @@ void main() {
     testWidgets('valid credentials DO navigate to the dashboard', (tester) async {
       // Control case: proves the gate opens for good input, so the blocking
       // tests above are meaningful and not just always-failing navigation.
-      await submitLogin(tester, email: 'test@example.com', password: 'password123');
+      await submitLogin(tester, email: 'hello@example.com', password: 'password123');
       expect(dashboard, findsOneWidget);
     });
   });
@@ -89,7 +89,7 @@ void main() {
       // Sign-up field order: Last, First, M.I., Email, Password, Confirm.
       await tester.enterText(fields.at(0), 'Doe');
       await tester.enterText(fields.at(1), 'John');
-      await tester.enterText(fields.at(3), 'new@example.com');
+      await tester.enterText(fields.at(3), 'newuser@example.com');
       await tester.enterText(fields.at(4), 'password123');
       await tester.enterText(fields.at(5), 'different456');
       // The submit button sits below the fold on the long sign-up form.

@@ -15,7 +15,7 @@ void main() {
   group('MockAuthService', () {
     test('signIn succeeds with valid credentials', () async {
       final service = MockAuthService();
-      await service.signIn(email: 'test@example.com', password: 'password123');
+      await service.signIn(email: 'hello@example.com', password: 'password123');
       expect(service.isAuthenticated, isTrue);
     });
 
@@ -41,7 +41,7 @@ void main() {
       final service = MockAuthService();
       expect(
         () => service.signUp(
-          email: 'test@example.com',
+          email: 'hello@example.com',
           password: 'password123',
           profile: _testProfile(),
         ),
@@ -51,7 +51,7 @@ void main() {
 
     test('signOut clears authentication', () async {
       final service = MockAuthService();
-      await service.signIn(email: 'test@example.com', password: 'password123');
+      await service.signIn(email: 'hello@example.com', password: 'password123');
       expect(service.isAuthenticated, isTrue);
       await service.signOut();
       expect(service.isAuthenticated, isFalse);
