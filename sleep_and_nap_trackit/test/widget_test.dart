@@ -34,7 +34,7 @@ void main() {
       ),
     );
 
-    await tester.enterText(find.byType(EditableText).at(0), 'test@example.com');
+    await tester.enterText(find.byType(EditableText).at(0), 'hello@example.com');
     await tester.enterText(find.byType(EditableText).at(1), 'password123');
     await tester.tap(find.text('Log In'));
     await tester.pumpAndSettle();

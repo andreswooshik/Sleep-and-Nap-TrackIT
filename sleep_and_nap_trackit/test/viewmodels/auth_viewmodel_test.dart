@@ -80,15 +80,23 @@ void main() {
       expect(vm.emailError, 'Enter a valid email');
     });
 
+    test('short username in email shows error', () async {
+      vm.setEmail('ab@example.com');
+      vm.setPassword('password123');
+      final result = await vm.submit();
+      expect(result, isFalse);
+      expect(vm.emailError, 'Email username must be at least 5 characters');
+    });
+
     test('empty password shows error', () async {
-      vm.setEmail('test@example.com');
+      vm.setEmail('hello@example.com');
       final result = await vm.submit();
       expect(result, isFalse);
       expect(vm.passwordError, 'Password is required');
     });
 
     test('short password shows error', () async {
-      vm.setEmail('test@example.com');
+      vm.setEmail('hello@example.com');
       vm.setPassword('abc');
       final result = await vm.submit();
       expect(result, isFalse);
@@ -99,7 +107,7 @@ void main() {
   group('validation — signUp mode', () {
     test('mismatched passwords shows error', () async {
       vm.toggleMode();
-      vm.setEmail('new@example.com');
+      vm.setEmail('newuser@example.com');
       vm.setPassword('password123');
       vm.setConfirmPassword('different');
       final result = await vm.submit();
@@ -111,7 +119,7 @@ void main() {
   group('submit — signUp', () {
     test('missing first name shows error', () async {
       vm.toggleMode();
-      vm.setEmail('new@example.com');
+      vm.setEmail('newuser@example.com');
       vm.setPassword('password123');
       vm.setConfirmPassword('password123');
       vm.setLastName('Doe');
@@ -125,7 +133,7 @@ void main() {
 
     test('missing date of birth shows error', () async {
       vm.toggleMode();
-      vm.setEmail('new@example.com');
+      vm.setEmail('newuser@example.com');
       vm.setPassword('password123');
       vm.setConfirmPassword('password123');
       vm.setFirstName('John');
@@ -140,7 +148,7 @@ void main() {
 
   group('submit — login', () {
     test('successful login returns true', () async {
-      vm.setEmail('test@example.com');
+      vm.setEmail('hello@example.com');
       vm.setPassword('password123');
       final result = await vm.submit();
       expect(result, isTrue);

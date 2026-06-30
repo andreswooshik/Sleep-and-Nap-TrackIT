@@ -68,7 +68,7 @@ void main() {
 
     testWidgets('shows password error on empty submit', (tester) async {
       await tester.pumpWidget(buildApp());
-      await tester.enterText(find.byType(TextFormField).first, 'test@example.com');
+      await tester.enterText(find.byType(TextFormField).first, 'hello@example.com');
       await tester.tap(find.text('Log In'));
       await tester.pump();
       expect(find.text('Password is required'), findsOneWidget);
